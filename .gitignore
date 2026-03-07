@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# virtual environments
+venv/
+.env/
+.env.*
+
+# models / heavy files
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# datasets
+data/
+datasets/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# build
+dist/
+build/
+
+Memoria_TFG.pdf
+Memoria_TFG_v2.pdf
+Plantilla_de_la_memoria_Academica.docx
+TFG_provisional.pdf
+Compromiso de Dirección del Trabajo de Fin de Grado_maximo.pdf
+2503.01378v1.pdf
+diagrama_de_gantt.png
