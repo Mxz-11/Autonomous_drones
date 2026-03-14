@@ -24,6 +24,7 @@ static int server_fd = -1;
 static int client_fd = -1;
 
 float cmd_vx = 0, cmd_vy = 0, cmd_vz = 0, cmd_yaw = 0;
+static float gps_x = 0, gps_y = 0;
 
 /* ================= TCP ================= */
 
@@ -155,6 +156,8 @@ int main() {
     actual_state.pitch = rpy[1];
     actual_state.yaw_rate = gyro_v[2];
     actual_state.altitude = g[2];
+    gps_x = (float)g[0];
+    gps_y = (float)g[1];
 
     double vx = (g[0] - past_x) / dt;
     double vy = (g[1] - past_y) / dt;
@@ -203,6 +206,16 @@ int main() {
             break;
           }
           sent += n2;
+        }
+        /* Send GPS X/Y position after frame (8 bytes: 2 floats) */
+        if (client_fd >= 0) {
+          float pos[2] = { gps_x, gps_y };
+          ssize_t np = send(client_fd, pos, sizeof(pos), 0);
+          if (np <= 0) {
+            close(client_fd);
+            client_fd = -1;
+            printf("[TCP] Client disconnected (pos send error)\n");
+          }
         }
       } else {
         close(client_fd);

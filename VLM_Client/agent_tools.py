@@ -110,18 +110,18 @@ def generate_decision(situation: str = "") -> str:
 
     messages = [
         SystemMessage(content=(
-            "Eres el sistema de control de un dron. Basándote en el contexto "
-            "de la misión y la situación actual, decide cómo debe moverse el dron.\n\n"
-            "Responde SOLO en este formato:\n"
-            "movement=<valor entre 0 y 1>, rotation=<valor entre -1 y 1>\n\n"
-            "Donde:\n"
-            "- movement: velocidad hacia adelante (0=parado, 1=máxima)\n"
-            "- rotation: rotación (negativo=izquierda, positivo=derecha)\n"
+            "You are the control system of a drone. Based on the mission context "
+            "and the current situation, decide how the drone should move.\n\n"
+            "Respond ONLY in this format:\n"
+            "movement=<value between 0 and 1>, rotation=<value between -1 and 1>\n\n"
+            "Where:\n"
+            "- movement: forward speed (0=stopped, 1=maximum)\n"
+            "- rotation: rotation (negative=left, positive=right)\n"
         )),
         HumanMessage(content=(
-            f"CONTEXTO DE LA MISIÓN:\n{context}\n\n"
-            f"SITUACIÓN ACTUAL:\n{situation or 'Sin información adicional'}\n\n"
-            f"¿Cuál es la siguiente acción?"
+            f"MISSION CONTEXT:\n{context}\n\n"
+            f"CURRENT SITUATION:\n{situation or 'No additional information'}\n\n"
+            f"What is the next action?"
         )),
     ]
 
@@ -161,15 +161,15 @@ def send_full_payload(max_events: int = 50) -> str:
 
     messages = [
         SystemMessage(content=(
-            "Eres un analista de misiones de drones. Recibirás el payload "
-            "completo de una misión y debes analizarlo. Identifica:\n"
-            "1. Estado general de la misión.\n"
-            "2. Patrones en los movimientos.\n"
-            "3. Posibles problemas o anomalías.\n"
-            "4. Recomendación para la siguiente acción.\n"
-            "Sé conciso pero informativo."
+            "You are a drone mission analyst. You will receive the full "
+            "mission payload and you must analyze it. Identify:\n"
+            "1. Overall mission status.\n"
+            "2. Movement patterns.\n"
+            "3. Possible issues or anomalies.\n"
+            "4. Recommendation for the next action.\n"
+            "Be concise but informative."
         )),
-        HumanMessage(content=f"PAYLOAD DE MISIÓN:\n{payload_json}"),
+        HumanMessage(content=f"MISSION PAYLOAD:\n{payload_json}"),
     ]
 
     try:

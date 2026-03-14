@@ -16,6 +16,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from mission_state import MissionState
+from telemetry import get_tracer
 
 
 DEFAULT_SUMMARY_PATH = os.path.join(
@@ -109,30 +110,34 @@ class HybridMemory:
 
         messages = [
             SystemMessage(content=(
-                "Eres un asistente de misión de drones. Tu tarea es generar un resumen "
-                "estratégico conciso de la misión basándote en el resumen anterior y los "
-                "eventos recientes. El resumen debe:\n"
-                "- Capturar el estado actual de la misión.\n"
-                "- Identificar patrones o tendencias.\n"
-                "- Señalar problemas o anomalías.\n"
-                "- Ser útil para tomar la siguiente decisión.\n"
-                "Responde SOLO con el resumen, sin explicaciones adicionales."
+                "You are a drone mission assistant. Your task is to generate a concise "
+                "strategic summary of the mission based on the previous summary and "
+                "recent events. The summary must:\n"
+                "- Capture the current status of the mission.\n"
+                "- Identify patterns or trends.\n"
+                "- Point out issues or anomalies.\n"
+                "- Be useful for making the next decision.\n"
+                "Respond ONLY with the summary, without additional explanations."
             )),
             HumanMessage(content=(
-                f"RESUMEN ANTERIOR:\n{self.strategic_summary or '(Sin resumen previo)'}\n\n"
-                f"EVENTOS RECIENTES ({len(recent)} eventos):\n{events_text}\n\n"
-                f"Genera el resumen estratégico actualizado:"
+                f"PREVIOUS SUMMARY:\n{self.strategic_summary or '(No previous summary)'}\n\n"
+                f"RECENT EVENTS ({len(recent)} events):\n{events_text}\n\n"
+                f"Generate the updated strategic summary:"
             )),
         ]
 
         try:
-            response = llm.invoke(messages)
-            self.strategic_summary = response.content.strip()
-            self.last_summary_update = datetime.now(timezone.utc).isoformat()
-            self.events_summarized_count = self.mission_state.total_events
+            with get_tracer("hybrid_memory").start_as_current_span("update_summary") as span:
+                response = llm.invoke(messages)
+                self.strategic_summary = response.content.strip()
+                self.last_summary_update = datetime.now(timezone.utc).isoformat()
+                self.events_summarized_count = self.mission_state.total_events
 
-            self.save_summary()
-            return self.strategic_summary
+                span.set_attribute("summary.length", len(self.strategic_summary))
+                span.set_attribute("events.summarized", self.events_summarized_count)
+
+                self.save_summary()
+                return self.strategic_summary
 
         except Exception as e:
             print(f"[ERROR] No se pudo actualizar el resumen: {e}")
@@ -166,6 +171,7 @@ class HybridMemory:
         return {
             "strategic_summary": self.strategic_summary or "(Sin resumen disponible)",
             "last_summary_update": self.last_summary_update,
+            "current_position": self.mission_state.position,
             "recent_events": self.mission_state.get_recent_events(
                 self.recent_events_count
             ),
@@ -190,6 +196,8 @@ class HybridMemory:
         return (
             f"=== RESUMEN ESTRATÉGICO ===\n"
             f"{ctx['strategic_summary']}\n\n"
+            f"=== POSICIÓN ACTUAL ===\n"
+            f"X={ctx['current_position']['x']}, Y={ctx['current_position']['y']}\n\n"
             f"=== EVENTOS RECIENTES ({len(ctx['recent_events'])}) ===\n"
             f"{recent_text}\n\n"
             f"=== INFO MISIÓN ===\n"
@@ -219,6 +227,9 @@ class HybridMemory:
 
 # ================= TEST RÁPIDO =================
 if __name__ == "__main__":
+    from telemetry import init_telemetry
+    init_telemetry("test_hybrid_memory", enable_console=False)
+
     print("=" * 50)
     print("Test de HybridMemory (sin LLM)")
     print("=" * 50)
@@ -229,6 +240,8 @@ if __name__ == "__main__":
     state.log_event("agent", "decision_made", {"movement": 0.5, "rotation": 0.1})
     state.log_event("drone", "command_sent", {"vx": 0.25, "yaw": 0.08})
     state.log_event("vlm", "frame_received", {"frame_id": 2})
+
+    state.update_position(1.5, -2.3)
 
     test_path = "/tmp/test_mission_summary.json"
     memory = HybridMemory(state, summary_path=test_path, recent_events_count=10)
@@ -242,6 +255,7 @@ if __name__ == "__main__":
     ctx = memory.get_context()
     print(f"\n[3] Contexto combinado:")
     print(f"    Resumen: {ctx['strategic_summary'][:60]}...")
+    print(f"    Posición: {ctx['current_position']}")
     print(f"    Eventos recientes: {len(ctx['recent_events'])}")
     print(f"    Misión: {ctx['mission_info']['name']}")
 

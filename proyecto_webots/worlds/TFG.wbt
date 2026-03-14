@@ -13,8 +13,8 @@ WorldInfo {
   title "Crazyflie"
 }
 Viewpoint {
-  orientation -0.06645 0.9856 0.1553 0.60
-  position -1.2 0.8 1.5 
+  orientation -0.06645195861727961 0.9856290506123521 0.15530457747574905 0.6
+  position -1.210337961070837 -0.10485143496059562 0.8148424591807205
   follow "Crazyflie"
   followType "Pan and Tilt Shot"
 }
@@ -25,14 +25,12 @@ TexturedBackgroundLight {
 Floor {
 }
 Crazyflie {
-  translation 0 0 0.015
-  controller "crazyflie"
   extensionSlot [
     Camera {
-      name "vlm_camera"
       translation 0.05 0 0.01
       rotation 0 0 1 1
-      fieldOfView 1.0
+      name "vlm_camera"
+      fieldOfView 1
       width 324
       height 324
     }

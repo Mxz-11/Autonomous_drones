@@ -7,5 +7,5 @@ centralWidgetVisible: 1
 orthographicViewHeight: 1
 textFiles: 0 "controllers/crazyflie/crazyflie.c"
 consoles: Console:All:All
-renderingDevicePerspectives: Crazyflie:camera;1;1;0;0
+renderingDevicePerspectives: Crazyflie:camera;0;1;0.233813;0.0279627
 renderingDevicePerspectives: Crazyflie:vlm_camera;1;1;0;0

@@ -3,11 +3,14 @@ mission_state.py — Estado global de la misión.
 
 Mantiene un log estructurado de todos los eventos de la misión y permite
 serializar el estado completo como payload JSON para enviarlo al LLM.
+Incluye tracking de la posición X/Y del dron y métricas OpenTelemetry.
 """
 
 import json
 from datetime import datetime, timezone
 from typing import Any
+
+from telemetry import get_meter
 
 
 class MissionState:
@@ -28,8 +31,21 @@ class MissionState:
         """
         self.mission_name: str = mission_name
         self.start_time: str = datetime.now(timezone.utc).isoformat()
-        self.event_log: list[dict[str, Any]] = []   
-        self.metadata: dict[str, Any] = {}           
+        self.event_log: list[dict[str, Any]] = []
+        self.metadata: dict[str, Any] = {}
+
+        # ---------- Posición X/Y ----------
+        self.position: dict[str, float] = {"x": 0.0, "y": 0.0}
+        self.position_history: list[dict[str, Any]] = []
+        self._max_position_history: int = 100
+
+        # ---------- Métricas OTel ----------
+        meter = get_meter("mission_state")
+        self._events_counter = meter.create_counter(
+            name="mission.events_logged",
+            description="Total mission events logged",
+            unit="1",
+        )
 
     # ---------- Registro de eventos ----------
 
@@ -53,6 +69,7 @@ class MissionState:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         self.event_log.append(event)
+        self._events_counter.add(1, {"actor": actor, "action": action})
         return event
 
     # ---------- Consultas ----------
@@ -73,6 +90,30 @@ class MissionState:
     def total_events(self) -> int:
         """Número total de eventos registrados."""
         return len(self.event_log)
+
+    # ---------- Posición X/Y ----------
+
+    def update_position(self, x: float, y: float) -> None:
+        """
+        Actualiza la posición actual del dron y la agrega al historial.
+
+        Args:
+            x: Coordenada X (GPS).
+            y: Coordenada Y (GPS).
+        """
+        self.position = {"x": round(x, 4), "y": round(y, 4)}
+        self.position_history.append({
+            "x": self.position["x"],
+            "y": self.position["y"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        # Limitar historial
+        if len(self.position_history) > self._max_position_history:
+            self.position_history = self.position_history[-self._max_position_history:]
+
+    def get_recent_positions(self, n: int = 10) -> list[dict]:
+        """Devuelve las últimas N posiciones."""
+        return self.position_history[-n:]
 
     # ---------- Serialización ----------
 
@@ -96,6 +137,7 @@ class MissionState:
             "start_time": self.start_time,
             "total_events": self.total_events,
             "events_included": len(events),
+            "current_position": self.position,
             "metadata": self.metadata,
             "events": events,
         }
@@ -137,6 +179,9 @@ class MissionState:
 
 # ================= TEST RÁPIDO =================
 if __name__ == "__main__":
+    from telemetry import init_telemetry
+    init_telemetry("test_mission_state", enable_console=False)
+
     print("=" * 50)
     print("Test de MissionState")
     print("=" * 50)
@@ -152,20 +197,28 @@ if __name__ == "__main__":
     state.log_event("agent", "decision_made", {"movement": 0.8, "rotation": -0.3})
     print(f"\n[2] Eventos registrados: {state.total_events}")
 
+    # --- Test posición X/Y ---
+    state.update_position(1.23, 4.56)
+    state.update_position(1.30, 4.60)
+    print(f"\n[3] Posición actual: {state.position}")
+    print(f"    Historial: {len(state.position_history)} registros")
+
     recent = state.get_recent_events(3)
-    print(f"\n[3] Últimos 3 eventos:")
+    print(f"\n[4] Últimos 3 eventos:")
     for e in recent:
         print(f"    {e['actor']:8s} | {e['action']:20s} | {e['data']}")
-    payload = state.to_payload(max_events=4)
-    print(f"\n[4] Payload (últimos 4 eventos):")
-    print(f"    mission: {payload['mission_name']}")
-    print(f"    total:   {payload['total_events']}")
-    print(f"    included:{payload['events_included']}")
 
-    print(f"\n[5] JSON completo:")
+    payload = state.to_payload(max_events=4)
+    print(f"\n[5] Payload (últimos 4 eventos):")
+    print(f"    mission:  {payload['mission_name']}")
+    print(f"    total:    {payload['total_events']}")
+    print(f"    included: {payload['events_included']}")
+    print(f"    position: {payload['current_position']}")
+
+    print(f"\n[6] JSON completo:")
     print(state.to_json(max_events=2))
 
     removed = state.clear_old_events(keep_last_n=3)
-    print(f"\n[6] Eventos eliminados: {removed}, quedan: {state.total_events}")
+    print(f"\n[7] Eventos eliminados: {removed}, quedan: {state.total_events}")
 
     print("\n[OK] Todos los tests pasaron correctamente.")

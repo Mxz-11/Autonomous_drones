@@ -34,6 +34,7 @@ from llm_config import get_decision_llm, get_summary_llm
 from mission_state import MissionState
 from hybrid_memory import HybridMemory
 from agent_tools import ALL_TOOLS, init_tools
+from telemetry import init_telemetry, get_tracer, get_meter
 
 
 # ================= CONFIGURACIÓN =================
@@ -41,11 +42,16 @@ from agent_tools import ALL_TOOLS, init_tools
 WEBOTS_IP = "127.0.0.1"
 WEBOTS_PORT = 9002
 
-MAX_FORWARD = 0.5    
-MAX_YAW = 0.8        
+MAX_FORWARD = 0.5
+MAX_YAW = 0.8
 
-SUMMARY_UPDATE_INTERVAL = 20   
-MAX_RECENT_EVENTS = 30         
+SUMMARY_UPDATE_INTERVAL = 20
+MAX_RECENT_EVENTS = 30
+
+# Activar recepción de posición X/Y desde el controlador.
+# Requiere que crazyflie.c esté recompilado con el envío de GPS.
+# Si usas el controlador antiguo, pon esto a False.
+POSITION_ENABLED = True
 
 # ================================================
 
@@ -79,17 +85,19 @@ def recv_exact(sock: socket.socket, n: int) -> bytes:
 # ================= PROMPT DEL SISTEMA =================
 
 SYSTEM_PROMPT = (
-    "Eres el sistema de control inteligente de un dron autónomo.\n\n"
-    "Tu misión es pilotar el dron siguiendo una trayectoria en forma de ocho. "
-    "Recibes frames de la cámara del dron y debes decidir los movimientos.\n\n"
-    "Tienes acceso a herramientas para registrar eventos, consultar el estado "
-    "de la misión, actualizar la memoria y generar decisiones.\n\n"
-    "REGLAS:\n"
-    "1. Siempre mantén movimiento hacia adelante.\n"
-    "2. Alterna la rotación para formar dos bucles opuestos.\n"
-    "3. Responde SIEMPRE con movement=X, rotation=Y al final.\n\n"
-    "Formato de respuesta final:\n"
-    "movement=<valor entre 0 y 1>, rotation=<valor entre -1 y 1>"
+    "You are the intelligent control system of an autonomous drone.\n\n"
+    "Your mission is to pilot the drone following a figure-eight trajectory. "
+    "You receive frames from the drone's camera and your GPS position (X, Y), "
+    "and you must decide the movements.\n\n"
+    "You have access to tools to log events, check the mission status, "
+    "update memory, and generate decisions.\n\n"
+    "RULES:\n"
+    "1. Always maintain forward movement.\n"
+    "2. Alternate rotation to form two opposite loops.\n"
+    "3. Use your X/Y position to estimate your trajectory.\n"
+    "4. ALWAYS respond with movement=X, rotation=Y at the end.\n\n"
+    "Final response format:\n"
+    "movement=<value between 0 and 1>, rotation=<value between -1 and 1>"
 )
 
 
@@ -282,15 +290,16 @@ def invoke_direct_llm(
     Envía la imagen + contexto directamente al modelo multimodal.
     """
     context = hybrid_memory.get_context_text()
+    pos = mission_state.position
 
     messages = [
         SystemMessage(content=(
-            "Eres el sistema de control de un dron. "
-            "Decide cómo debe moverse usando dos valores:\n"
-            "- movement: número entre 0 y 1 (velocidad hacia adelante)\n"
-            "- rotation: número entre -1 y 1 (rotación, neg=izquierda)\n\n"
-            "Misión: volar siguiendo una trayectoria en forma de ocho.\n"
-            "Responde SOLO: movement=<valor>, rotation=<valor>"
+            "You are the control system of a drone. "
+            "Decide how it should move using two values:\n"
+            "- movement: number between 0 and 1 (forward velocity)\n"
+            "- rotation: number between -1 and 1 (rotation, neg=left)\n\n"
+            "Mission: fly following a figure-eight trajectory.\n"
+            "Respond ONLY: movement=<value>, rotation=<value>"
         )),
         HumanMessage(content=[
             {
@@ -301,8 +310,9 @@ def invoke_direct_llm(
                 "type": "text",
                 "text": (
                     f"Frame #{frame_id}\n"
-                    f"Contexto:\n{context}\n"
-                    f"Decide movement y rotation."
+                    f"GPS Position: X={pos['x']}, Y={pos['y']}\n"
+                    f"Context:\n{context}\n"
+                    f"Decide movement and rotation."
                 ),
             },
         ]),
@@ -332,16 +342,44 @@ def main():
     """
     Loop principal del cliente VLM.
 
-    1. Inicializa el sistema de agente.
-    2. Conecta a Webots por socket.
-    3. Para cada frame recibido:
+    1. Inicializa telemetría OpenTelemetry.
+    2. Inicializa el sistema de agente.
+    3. Conecta a Webots por socket.
+    4. Para cada frame recibido:
        a. Convierte a base64.
-       b. Invoca al agente (o LLM directo como fallback).
-       c. Parsea movement/rotation.
-       d. Envía comando al dron.
-       e. Actualiza la memoria periódicamente.
+       b. Recibe posición X/Y del dron.
+       c. Invoca al agente (o LLM directo como fallback).
+       d. Parsea movement/rotation.
+       e. Envía comando al dron.
+       f. Actualiza la memoria periódicamente.
     """
     USE_AGENT_MODE = True
+
+    # ---- Telemetría ----
+    init_telemetry("vlm_client")
+    tracer = get_tracer("main_loop")
+    meter = get_meter("drone_metrics")
+
+    frame_counter = meter.create_counter(
+        name="drone.frames_processed",
+        description="Total frames processed",
+        unit="1",
+    )
+    decision_histogram = meter.create_histogram(
+        name="drone.decision_latency",
+        description="Agent decision latency",
+        unit="s",
+    )
+    pos_x_gauge = meter.create_gauge(
+        name="drone.position_x",
+        description="Drone GPS X position",
+        unit="m",
+    )
+    pos_y_gauge = meter.create_gauge(
+        name="drone.position_y",
+        description="Drone GPS Y position",
+        unit="m",
+    )
 
     agent, mission_state, hybrid_memory, decision_llm = create_agent_system()
 
@@ -375,37 +413,63 @@ def main():
                 sock = connect_to_webots()
                 continue
 
-            # ---- Leer header del frame ----
-            header = recv_exact(sock, 8)
-            w, h = struct.unpack("ii", header)
+            # ---- Leer header + frame + posición (con tracing) ----
+            with tracer.start_as_current_span("frame_receive") as span:
+                header = recv_exact(sock, 8)
+                w, h = struct.unpack("ii", header)
 
-            if w <= 0 or h <= 0 or w > 2000 or h > 2000:
-                print(f"[ERROR] Header inválido: {w}x{h}, reconectando...")
-                mission_state.log_event("system", "invalid_header", {
-                    "width": w, "height": h
-                })
-                sock.close()
-                sock = connect_to_webots()
-                continue
+                if w <= 0 or h <= 0 or w > 2000 or h > 2000:
+                    print(f"[ERROR] Header inválido: {w}x{h}, reconectando...")
+                    mission_state.log_event("system", "invalid_header", {
+                        "width": w, "height": h
+                    })
+                    sock.close()
+                    sock = connect_to_webots()
+                    continue
 
-            # ---- Recibir frame ----
-            img_bytes = recv_exact(sock, w * h * 4)
-            img_b64 = frame_to_base64(img_bytes, w, h)
-            frame_id += 1
+                img_bytes = recv_exact(sock, w * h * 4)
+                img_b64 = frame_to_base64(img_bytes, w, h)
 
-            # ---- Decidir movimiento ----
-            if USE_AGENT_MODE:
-                movement, rotation = invoke_agent(
-                    agent, mission_state, hybrid_memory,
-                    img_b64, frame_id,
-                )
-            else:
-                movement, rotation = invoke_direct_llm(
-                    decision_llm, mission_state, hybrid_memory,
-                    img_b64, frame_id,
-                )
+                # ---- Recibir posición X/Y (8 bytes: 2 floats) ----
+                pos_x, pos_y = 0.0, 0.0
+                if POSITION_ENABLED:
+                    pos_bytes = recv_exact(sock, 8)
+                    pos_x, pos_y = struct.unpack("ff", pos_bytes)
+                    mission_state.update_position(pos_x, pos_y)
 
-            # ---- Calcular y enviar comando ----
+                frame_id += 1
+                frame_counter.add(1)
+                pos_x_gauge.set(pos_x)
+                pos_y_gauge.set(pos_y)
+
+                span.set_attribute("frame.id", frame_id)
+                span.set_attribute("frame.width", w)
+                span.set_attribute("frame.height", h)
+                span.set_attribute("drone.pos_x", pos_x)
+                span.set_attribute("drone.pos_y", pos_y)
+
+            # ---- Decidir movimiento (con tracing) ----
+            with tracer.start_as_current_span("agent_invoke") as span:
+                t0 = time.time()
+
+                if USE_AGENT_MODE:
+                    movement, rotation = invoke_agent(
+                        agent, mission_state, hybrid_memory,
+                        img_b64, frame_id,
+                    )
+                else:
+                    movement, rotation = invoke_direct_llm(
+                        decision_llm, mission_state, hybrid_memory,
+                        img_b64, frame_id,
+                    )
+
+                latency = time.time() - t0
+                decision_histogram.record(latency)
+                span.set_attribute("decision.movement", movement)
+                span.set_attribute("decision.rotation", rotation)
+                span.set_attribute("decision.latency_s", round(latency, 3))
+
+            # ---- Calcular y enviar comando (con tracing) ----
             vx = movement * MAX_FORWARD
             vy = 0.0
             vz = 0.0
@@ -413,23 +477,28 @@ def main():
 
             cmd = f"{vx} {vy} {vz} {yaw}\n"
 
-            try:
-                sock.send(cmd.encode())
-                print(
-                    f"[F{frame_id:04d}] movement={movement:.2f}, "
-                    f"rotation={rotation:.2f} → {cmd.strip()}"
-                )
-                mission_state.log_event("drone", "command_sent", {
-                    "frame_id": frame_id,
-                    "vx": vx, "vy": vy, "vz": vz, "yaw": yaw,
-                })
-            except BrokenPipeError:
-                print("[WARN] BrokenPipe, reconectando...")
-                mission_state.log_event("system", "connection_lost", {
-                    "reason": "BrokenPipe"
-                })
-                sock.close()
-                sock = connect_to_webots()
+            with tracer.start_as_current_span("command_send") as span:
+                try:
+                    sock.send(cmd.encode())
+                    print(
+                        f"[F{frame_id:04d}] pos=({pos_x:.2f},{pos_y:.2f}) "
+                        f"mov={movement:.2f} rot={rotation:.2f} → {cmd.strip()}"
+                    )
+                    mission_state.log_event("drone", "command_sent", {
+                        "frame_id": frame_id,
+                        "vx": vx, "vy": vy, "vz": vz, "yaw": yaw,
+                        "pos_x": round(pos_x, 4),
+                        "pos_y": round(pos_y, 4),
+                    })
+                    span.set_attribute("cmd.vx", vx)
+                    span.set_attribute("cmd.yaw", yaw)
+                except BrokenPipeError:
+                    print("[WARN] BrokenPipe, reconectando...")
+                    mission_state.log_event("system", "connection_lost", {
+                        "reason": "BrokenPipe"
+                    })
+                    sock.close()
+                    sock = connect_to_webots()
 
             # ---- Actualizar resumen periódicamente ----
             if hybrid_memory.should_update_summary(SUMMARY_UPDATE_INTERVAL):
