@@ -9,6 +9,7 @@ from .hybrid_memory import HybridMemory
 from .llm_config import get_decision_llm, get_summary_llm, get_custom_llm
 from .agent_tools import ALL_TOOLS, init_tools
 from .telemetry import init_telemetry, get_tracer, get_meter
+from .advanced_logger import MissionLogger, get_logger
 
 __all__ = [
     "MissionState",
@@ -21,5 +22,7 @@ __all__ = [
     "init_telemetry",
     "get_tracer",
     "get_meter",
+    "MissionLogger",
+    "get_logger",
 ]
 

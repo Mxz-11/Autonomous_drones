@@ -3,15 +3,18 @@ mission_state.py — Estado global de la misión.
 
 Mantiene un log estructurado de todos los eventos de la misión y permite
 serializar el estado completo como payload JSON para enviarlo al LLM.
-Incluye tracking de la posición X/Y del dron y métricas OpenTelemetry.
+Incluye tracking de la posición X/Y/Z del dron y métricas OpenTelemetry.
 """
 
 import json
+import os
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from telemetry import get_meter
 
+MISSION_EVENT_DEBUG = os.getenv("VLM_LOG_MISSION_EVENTS", "0") == "1"
 
 class MissionState:
     """
@@ -29,13 +32,16 @@ class MissionState:
         Args:
             mission_name: Nombre identificativo de la misión.
         """
+        self._lock = threading.Lock()
+
         self.mission_name: str = mission_name
         self.start_time: str = datetime.now(timezone.utc).isoformat()
         self.event_log: list[dict[str, Any]] = []
         self.metadata: dict[str, Any] = {}
+        self._next_event_id: int = 0
 
-        # ---------- Posición X/Y ----------
-        self.position: dict[str, float] = {"x": 0.0, "y": 0.0}
+        # ---------- Posición X/Y/Z ----------
+        self.position: dict[str, float] = {"x": 0.0, "y": 0.0, "z": 0.0}
         self.position_history: list[dict[str, Any]] = []
         self._max_position_history: int = 100
 
@@ -51,7 +57,7 @@ class MissionState:
 
     def log_event(self, actor: str, action: str, data: Any = None) -> dict:
         """
-        Registra un evento en el log de la misión.
+        Registra un evento en el log de la misión (thread-safe).
 
         Args:
             actor:  Quién genera el evento ("drone", "vlm", "agent", "user", etc.)
@@ -61,66 +67,80 @@ class MissionState:
         Returns:
             El evento registrado.
         """
-        event = {
-            "id": len(self.event_log),
-            "actor": actor,
-            "action": action,
-            "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        self.event_log.append(event)
+        with self._lock:
+            event = {
+                "id": self._next_event_id,
+                "actor": actor,
+                "action": action,
+                "data": data,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self._next_event_id += 1
+            self.event_log.append(event)
         self._events_counter.add(1, {"actor": actor, "action": action})
+
+        if MISSION_EVENT_DEBUG:
+            from advanced_logger import get_logger
+            get_logger("mission_state").debug(f"Event #{event['id']} [{actor}] {action}")
+
         return event
 
     # ---------- Consultas ----------
 
     def get_recent_events(self, n: int = 10) -> list[dict]:
-        """Devuelve los últimos N eventos del log."""
-        return self.event_log[-n:]
+        """Devuelve los últimos N eventos del log (thread-safe)."""
+        with self._lock:
+            return list(self.event_log[-n:])
 
     def get_events_by_actor(self, actor: str) -> list[dict]:
-        """Filtra eventos por actor."""
-        return [e for e in self.event_log if e["actor"] == actor]
+        """Filtra eventos por actor (thread-safe)."""
+        with self._lock:
+            return [e for e in self.event_log if e["actor"] == actor]
 
     def get_events_by_action(self, action: str) -> list[dict]:
-        """Filtra eventos por tipo de acción."""
-        return [e for e in self.event_log if e["action"] == action]
+        """Filtra eventos por tipo de acción (thread-safe)."""
+        with self._lock:
+            return [e for e in self.event_log if e["action"] == action]
 
     @property
     def total_events(self) -> int:
         """Número total de eventos registrados."""
-        return len(self.event_log)
+        with self._lock:
+            return len(self.event_log)
 
-    # ---------- Posición X/Y ----------
+    # ---------- Posición X/Y/Z ----------
 
-    def update_position(self, x: float, y: float) -> None:
+    def update_position(self, x: float, y: float, z: float = 0.0) -> None:
         """
-        Actualiza la posición actual del dron y la agrega al historial.
+        Actualiza la posición actual del dron y la agrega al historial (thread-safe).
 
         Args:
             x: Coordenada X (GPS).
             y: Coordenada Y (GPS).
+            z: Coordenada Z (GPS / altitud).
         """
-        self.position = {"x": round(x, 4), "y": round(y, 4)}
-        self.position_history.append({
-            "x": self.position["x"],
-            "y": self.position["y"],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-        # Limitar historial
-        if len(self.position_history) > self._max_position_history:
-            self.position_history = self.position_history[-self._max_position_history:]
+        with self._lock:
+            self.position = {"x": round(x, 4), "y": round(y, 4), "z": round(z, 4)}
+            self.position_history.append({
+                "x": self.position["x"],
+                "y": self.position["y"],
+                "z": self.position["z"],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+            # Limitar historial
+            if len(self.position_history) > self._max_position_history:
+                self.position_history = self.position_history[-self._max_position_history:]
 
     def get_recent_positions(self, n: int = 10) -> list[dict]:
-        """Devuelve las últimas N posiciones."""
-        return self.position_history[-n:]
+        """Devuelve las últimas N posiciones (thread-safe)."""
+        with self._lock:
+            return list(self.position_history[-n:])
 
     # ---------- Serialización ----------
 
     def to_payload(self, max_events: int | None = None) -> dict:
         """
-        Serializa el estado completo de la misión como un dict (JSON-ready).
-        Este payload se puede enviar directamente a un LLM.
+        Serializa el estado completo de la misión como un dict (JSON-ready, thread-safe).
 
         Args:
             max_events: Si se especifica, solo incluye los últimos N eventos.
@@ -128,16 +148,18 @@ class MissionState:
         Returns:
             Dict con toda la información de la misión.
         """
-        events = self.event_log
-        if max_events is not None:
-            events = self.event_log[-max_events:]
+        with self._lock:
+            events = list(self.event_log)
+            if max_events is not None:
+                events = events[-max_events:]
+            position_copy = dict(self.position)
 
         return {
             "mission_name": self.mission_name,
             "start_time": self.start_time,
-            "total_events": self.total_events,
+            "total_events": len(events),
             "events_included": len(events),
-            "current_position": self.position,
+            "current_position": position_copy,
             "metadata": self.metadata,
             "events": events,
         }
@@ -150,8 +172,8 @@ class MissionState:
 
     def clear_old_events(self, keep_last_n: int = 50) -> int:
         """
-        Elimina eventos antiguos, manteniendo solo los últimos N.
-        Util para limitar uso de memoria.
+        Elimina eventos antiguos, manteniendo solo los últimos N (thread-safe).
+        Los event IDs permanecen monotónicos (no se reinician).
 
         Args:
             keep_last_n: Número de eventos recientes a conservar.
@@ -159,11 +181,12 @@ class MissionState:
         Returns:
             Número de eventos eliminados.
         """
-        if len(self.event_log) <= keep_last_n:
-            return 0
-        removed = len(self.event_log) - keep_last_n
-        self.event_log = self.event_log[-keep_last_n:]
-        return removed
+        with self._lock:
+            if len(self.event_log) <= keep_last_n:
+                return 0
+            removed = len(self.event_log) - keep_last_n
+            self.event_log = self.event_log[-keep_last_n:]
+            return removed
 
     def set_metadata(self, key: str, value: Any) -> None:
         """Establece un valor de metadata de la misión."""
@@ -197,7 +220,7 @@ if __name__ == "__main__":
     state.log_event("agent", "decision_made", {"movement": 0.8, "rotation": -0.3})
     print(f"\n[2] Eventos registrados: {state.total_events}")
 
-    # --- Test posición X/Y ---
+    # --- Test posición X/Y/Z ---
     state.update_position(1.23, 4.56)
     state.update_position(1.30, 4.60)
     print(f"\n[3] Posición actual: {state.position}")

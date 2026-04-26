@@ -12,7 +12,10 @@ Estas herramientas se inyectan al agente en vlm_client.py.
 """
 
 import json
+import time
 from langchain_core.tools import tool
+
+from advanced_logger import MissionLogger, get_logger
 
 # --- Referencias globales ---
 _mission_state = None
@@ -54,6 +57,7 @@ def register_event(actor: str, action: str, data: str = "") -> str:
     if _mission_state is None:
         return "ERROR: MissionState no inicializado."
 
+    t0 = time.time()
     parsed_data = data
     if data:
         try:
@@ -62,7 +66,10 @@ def register_event(actor: str, action: str, data: str = "") -> str:
             parsed_data = data  
 
     event = _mission_state.log_event(actor, action, parsed_data)
-    return f"Evento #{event['id']} registrado: [{actor}] {action}"
+    result = f"Evento #{event['id']} registrado: [{actor}] {action}"
+    
+    MissionLogger().log_tool_call("register_event", {"actor": actor, "action": action}, result, time.time() - t0)
+    return result
 
 
 # =====================================================================
@@ -81,8 +88,12 @@ def update_memory() -> str:
     if _hybrid_memory is None or _summary_llm is None:
         return "ERROR: HybridMemory o SummaryLLM no inicializados."
 
+    t0 = time.time()
     new_summary = _hybrid_memory.update_summary(_summary_llm)
-    return f"Resumen actualizado:\n{new_summary}"
+    result = f"Resumen actualizado:\n{new_summary}"
+    
+    MissionLogger().log_tool_call("update_memory", None, f"Length: {len(new_summary)}", time.time() - t0)
+    return result
 
 
 # =====================================================================
@@ -106,6 +117,7 @@ def generate_decision(situation: str = "") -> str:
 
     from langchain_core.messages import SystemMessage, HumanMessage
 
+    t0 = time.time()
     context = _hybrid_memory.get_context_text()
 
     messages = [
@@ -132,9 +144,12 @@ def generate_decision(situation: str = "") -> str:
         if _mission_state:
             _mission_state.log_event("agent", "decision_made", {"raw": answer})
 
+        MissionLogger().log_tool_call("generate_decision", {"situation": situation}, answer, time.time() - t0)
         return answer
     except Exception as e:
-        return f"ERROR al generar decisión: {e}"
+        error_msg = f"ERROR al generar decisión: {e}"
+        MissionLogger().log_tool_call("generate_decision", {"situation": situation}, error_msg, time.time() - t0)
+        return error_msg
 
 
 # =====================================================================
@@ -157,6 +172,7 @@ def send_full_payload(max_events: int = 50) -> str:
 
     from langchain_core.messages import SystemMessage, HumanMessage
 
+    t0 = time.time()
     payload_json = _mission_state.to_json(max_events=max_events)
 
     messages = [
@@ -174,9 +190,13 @@ def send_full_payload(max_events: int = 50) -> str:
 
     try:
         response = _decision_llm.invoke(messages)
-        return response.content.strip()
+        answer = response.content.strip()
+        MissionLogger().log_tool_call("send_full_payload", {"max_events": max_events}, answer, time.time() - t0)
+        return answer
     except Exception as e:
-        return f"ERROR al enviar payload: {e}"
+        error_msg = f"ERROR al enviar payload: {e}"
+        MissionLogger().log_tool_call("send_full_payload", {"max_events": max_events}, error_msg, time.time() - t0)
+        return error_msg
 
 
 # =====================================================================
@@ -195,7 +215,10 @@ def get_mission_status() -> str:
     if _mission_state is None or _hybrid_memory is None:
         return "ERROR: MissionState o HybridMemory no inicializados."
 
-    return _hybrid_memory.get_context_text()
+    t0 = time.time()
+    status = _hybrid_memory.get_context_text()
+    MissionLogger().log_tool_call("get_mission_status", None, f"Length: {len(status)}", time.time() - t0)
+    return status
 
 
 # =====================================================================
@@ -204,9 +227,10 @@ def get_mission_status() -> str:
 ALL_TOOLS = [
     register_event,
     update_memory,
-    generate_decision,
-    send_full_payload,
     get_mission_status,
+    # generate_decision y send_full_payload se excluyen del agente:
+    # el propio agente ReAct ya es el decisor, llamarlas generaría
+    # una segunda llamada al LLM innecesaria (~30s extra por frame).
 ]
 
 

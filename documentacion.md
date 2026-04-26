@@ -44,3 +44,20 @@ Sus responsabilidades y componentes principales son:
 4. **Transmisión de Imágenes (*Pull-Based*)**
    - Cuando recibe la orden `FRAME`, el controlador recupera el *buffer* completo de la imagen generada por Webots.
    - Primero envía una pequeña cabecera con las dimensiones `[ancho, alto]` e inmediatamente después manda los fotogramas sin procesar (bytes) de forma bloqueante a través de la red TCP en fragmentos (chunks) hasta completar el tamaño de la imagen hacia el cliente.
+
+## Ejecutar el proyecto
+
+1. Abre Webots y carga la escena.
+
+2. Abre una terminal y ejecuta el siguiente comando:
+
+```bash
+   cd /VLM_Client
+   source venv/bin/activate
+   python vlm_client.py
+```
+
+3. Abre LM Studio y carga el modelo.
+
+
+   

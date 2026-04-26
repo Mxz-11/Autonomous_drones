@@ -1,0 +1,563 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/TrafficCone.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Pine.proto"
+
+WorldInfo {
+  info [
+    "VLM Drone Mission World."
+    "Recorrido al aire libre con obstáculos físicos:"
+    "  1. Despegar de la plataforma roja (X=0)."
+    "  2. Pasar por el arco ROJO (X=4)."
+    "  3. Rodear el bloque de contenedores por la derecha (X=7..9)."
+    "  4. Pasar por el arco AZUL (X=12) entre muros de cajas."
+    "  5. Zigzag entre conos (X=15..21)."
+    "  6. Pasar por el arco VERDE (X=23)."
+    "  7. Aterrizar en la plataforma verde con H (X=27)."
+  ]
+  title "VLM Drone Mission"
+  basicTimeStep 8
+}
+Viewpoint {
+  orientation -0.06645195861727961 0.9856290506123521 0.15530457747574905 0.6
+  position -1.210337961070837 -0.10485143496059562 0.8148424591807205
+  follow "Crazyflie"
+  followType "Pan and Tilt Shot"
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+TexturedBackgroundLight {
+  luminosity 1.1
+}
+Floor {
+  size 100 40
+}
+DEF LAUNCH_PAD Solid {
+  translation -2.937661730049097e-20 4.434139326594337e-20 0.004803630630944006
+  rotation -4.656709469530656e-11 -5.014917889993598e-11 -1 1.7845276576437883e-08
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.1 0.1
+        roughness 0.7
+      }
+      geometry Box {
+        size 0.5 0.5 0.01
+      }
+    }
+  ]
+  name "launch_pad"
+  boundingObject Box {
+    size 0.5 0.5 0.01
+  }
+  physics Physics {
+    density 800
+  }
+}
+DEF WP1_LEFT Solid {
+  translation 4 0.7 0.4991660028499999
+  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.9 0.1 0.1
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp1_left"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP1_RIGHT Solid {
+  translation 4 -0.7 0.4991660028499999
+  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.9 0.1 0.1
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp1_right"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP1_TOP Solid {
+  translation 4 2.7290328480237144e-18 1.0338126957000005
+  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.9 0.1 0.1
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 1.47 0.07
+      }
+    }
+  ]
+  name "wp1_top"
+  boundingObject Box {
+    size 0.07 1.47 0.07
+  }
+  physics Physics {
+  }
+}
+DEF CONTAINER_1 Solid {
+  translation 8 1.2 0.6
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.15 0.35 0.6
+        roughness 0.6
+        metalness 0.3
+      }
+      geometry Box {
+        size 2.4 1 1.2
+      }
+    }
+  ]
+  name "container_1"
+  boundingObject Box {
+    size 2.4 1 1.2
+  }
+}
+DEF CONTAINER_2 Solid {
+  translation 8 1.2 1.8
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.6 0.2 0.1
+        roughness 0.6
+        metalness 0.3
+      }
+      geometry Box {
+        size 2.4 1 1.2
+      }
+    }
+  ]
+  name "container_2"
+  boundingObject Box {
+    size 2.4 1 1.2
+  }
+}
+DEF CONTAINER_3 Solid {
+  translation 8 0 0.6
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.7 0.1
+        roughness 0.6
+        metalness 0.3
+      }
+      geometry Box {
+        size 2.4 0.8 1.2
+      }
+    }
+  ]
+  name "container_3"
+  boundingObject Box {
+    size 2.4 0.8 1.2
+  }
+}
+DEF WBOX_1 Solid {
+  translation 7 -1.6 0.3
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.2 0.1
+        roughness 0.8
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "wbox_1"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF WBOX_2 Solid {
+  translation 9 -1.6 0.3
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.2 0.1
+        roughness 0.8
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "wbox_2"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF WBOX_3 Solid {
+  translation 9 -1.6 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.4 0.2 0.1
+        roughness 0.8
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "wbox_3"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF CARD_WALL_L Solid {
+  translation 12 1.45 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.6 0.4
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.4 0.9 0.8
+      }
+    }
+  ]
+  name "cardboard_wall_L"
+  boundingObject Box {
+    size 0.4 0.9 0.8
+  }
+}
+DEF CARD_WALL_R Solid {
+  translation 12 -1.45 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.8 0.6 0.4
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.4 0.9 0.8
+      }
+    }
+  ]
+  name "cardboard_wall_R"
+  boundingObject Box {
+    size 0.4 0.9 0.8
+  }
+}
+DEF WP2_LEFT Solid {
+  translation 12 0.7 0.4991660028499999
+  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.2 0.9
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp2_left"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP2_RIGHT Solid {
+  translation 12 -0.7 0.4991660028499999
+  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.2 0.9
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp2_right"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP2_TOP Solid {
+  translation 12 2.7290328480237144e-18 1.0338126957000005
+  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.2 0.9
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 1.47 0.07
+      }
+    }
+  ]
+  name "wp2_top"
+  boundingObject Box {
+    size 0.07 1.47 0.07
+  }
+  physics Physics {
+  }
+}
+TrafficCone {
+  translation 15.5 1 0
+  name "cone_1"
+}
+TrafficCone {
+  translation 17 -1 0
+  name "cone_2"
+}
+TrafficCone {
+  translation 18.5 1 0
+  name "cone_3"
+}
+TrafficCone {
+  translation 20 -1 0
+  name "cone_4"
+}
+TrafficCone {
+  translation 21.5 1 0
+  name "cone_5"
+}
+DEF POST_1 Solid {
+  translation 16 2.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.3 0.3 0.3
+      }
+      geometry Cylinder {
+        height 3
+        radius 0.05
+      }
+    }
+  ]
+  name "post_1"
+  boundingObject Cylinder {
+    height 3
+    radius 0.05
+  }
+}
+DEF POST_2 Solid {
+  translation 19 -2.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.3 0.3 0.3
+      }
+      geometry Cylinder {
+        height 3
+        radius 0.05
+      }
+    }
+  ]
+  name "post_2"
+  boundingObject Cylinder {
+    height 3
+    radius 0.05
+  }
+}
+Pine {
+  translation 15 3.5 0
+  name "pine_1"
+}
+Pine {
+  translation 18 4 0
+  name "pine_2"
+}
+Pine {
+  translation 21 3.5 0
+  name "pine_3"
+}
+Pine {
+  translation 15 -3.5 0
+  name "pine_4"
+}
+Pine {
+  translation 18 -4 0
+  name "pine_5"
+}
+Pine {
+  translation 21 -3.5 0
+  name "pine_6"
+}
+DEF WP3_LEFT Solid {
+  translation 23 0.7 0.4991660028499999
+  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.75 0.15
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp3_left"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP3_RIGHT Solid {
+  translation 23 -0.7 0.4991660028499999
+  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.75 0.15
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 0.07 1
+      }
+    }
+  ]
+  name "wp3_right"
+  boundingObject Box {
+    size 0.07 0.07 1
+  }
+  physics Physics {
+  }
+}
+DEF WP3_TOP Solid {
+  translation 23 2.7290328480237144e-18 1.0338126957000005
+  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.75 0.15
+        roughness 0.4
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.07 1.47 0.07
+      }
+    }
+  ]
+  name "wp3_top"
+  boundingObject Box {
+    size 0.07 1.47 0.07
+  }
+  physics Physics {
+  }
+}
+DEF LANDING_PAD Solid {
+  translation 27 -8.405490846652953e-21 0.004717472000000073
+  rotation 0.8944109190082924 0.4472054595041379 0.006031993736273972 3.6768739319348006e-19
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.7 0.1
+        roughness 0.6
+      }
+      geometry Box {
+        size 0.6 0.6 0.01
+      }
+    }
+    Pose {
+      translation -0.15 0 0.015
+      children [
+        Shape {
+          appearance PBRAppearance {
+            roughness 0.4
+          }
+          geometry Box {
+            size 0.05 0.35 0.005
+          }
+        }
+      ]
+    }
+    Pose {
+      translation 0.15 0 0.015
+      children [
+        Shape {
+          appearance PBRAppearance {
+            roughness 0.4
+          }
+          geometry Box {
+            size 0.05 0.35 0.005
+          }
+        }
+      ]
+    }
+    Pose {
+      translation 0 0 0.015
+      children [
+        Shape {
+          appearance PBRAppearance {
+            roughness 0.4
+          }
+          geometry Box {
+            size 0.35 0.05 0.005
+          }
+        }
+      ]
+    }
+  ]
+  name "landing_pad"
+  boundingObject Box {
+    size 0.6 0.6 0.01
+  }
+  physics Physics {
+    density 800
+  }
+}
+Crazyflie {
+  translation -2.862041025964661e-16 -8.692382319653776e-16 0.03389
+  rotation 3.7799324202933813e-16 7.779098055844074e-16 -1 0.28969440398232765
+  extensionSlot [
+    Camera {
+      translation 0.05 0 0.01
+      rotation 1 0 0 0
+      name "vlm_camera"
+      fieldOfView 1.2
+      width 324
+      height 324
+    }
+  ]
+}

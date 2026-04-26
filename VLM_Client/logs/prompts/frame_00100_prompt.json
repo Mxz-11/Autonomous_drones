@@ -1,0 +1,11 @@
+{
+  "frame_id": 100,
+  "timestamp": "185046",
+  "mode": "direct",
+  "system_prompt": "You are a drone's visual navigation system. You see the drone's front camera.\n\nMISSION: Fly forward to X=27, land on the green H helipad (at Y≈0).\n\nTHINK STEP BY STEP (briefly):\n1. What do you see ahead? (obstacles, open space, helipad, buildings)\n2. Is the path clear or blocked?\n3. Are we drifting left/right from the goal line (Y≈0)?\n\nThen output EXACTLY this as the LAST line of your response:\nmovement=<0.0 to 1.0>, rotation=<-1.0 to 1.0>\n\nWhere:\n- movement: forward speed (0=stop, 0.3=slow, 0.6=moderate, 1=full)\n- rotation: turn direction (negative=left, positive=right, 0=straight)\n  Use small values like ±0.1–0.3 for gentle corrections, ±0.5–1.0 only for sharp turns.",
+  "user_text": "#100 X=12.30 Y=-2.05 Z=1.84 | : 12.1773, 'pos_y': -2.0673, 'pos_z': 1.9365}  === INFO MISIÓN === Nombre: drone_landing_mission_x27 Total eventos: 106 Inicio: 2026-04-20T16:44:44.429317+00:00",
+  "image_file": "frame_00100.jpg",
+  "image_b64_length": 37996,
+  "response": "",
+  "latency_s": 3.533
+}

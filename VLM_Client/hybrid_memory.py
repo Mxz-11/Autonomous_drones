@@ -17,6 +17,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from mission_state import MissionState
 from telemetry import get_tracer
+from advanced_logger import MissionLogger, get_logger, extract_token_usage
 
 
 DEFAULT_SUMMARY_PATH = os.path.join(
@@ -75,7 +76,7 @@ class HybridMemory:
             self.events_summarized_count = data.get("events_summarized", 0)
             return True
         except (json.JSONDecodeError, IOError) as e:
-            print(f"[WARN] No se pudo cargar el resumen: {e}")
+            get_logger("hybrid_memory").warning(f"No se pudo cargar el resumen: {e}")
             return False
 
     def save_summary(self) -> None:
@@ -127,8 +128,11 @@ class HybridMemory:
         ]
 
         try:
+            import time
+            t_start = time.time()
             with get_tracer("hybrid_memory").start_as_current_span("update_summary") as span:
                 response = llm.invoke(messages)
+                latency = time.time() - t_start
                 self.strategic_summary = response.content.strip()
                 self.last_summary_update = datetime.now(timezone.utc).isoformat()
                 self.events_summarized_count = self.mission_state.total_events
@@ -136,11 +140,23 @@ class HybridMemory:
                 span.set_attribute("summary.length", len(self.strategic_summary))
                 span.set_attribute("events.summarized", self.events_summarized_count)
 
+                # Track tokens
+                tokens = extract_token_usage(response)
+                model_name = getattr(llm, "model_name", "summary_llm")
+                MissionLogger().log_llm_call(
+                    model=model_name,
+                    prompt_tokens=tokens.get("prompt_tokens", 0),
+                    completion_tokens=tokens.get("completion_tokens", 0),
+                    total_tokens=tokens.get("total_tokens", 0),
+                    latency_s=latency,
+                    response_preview=self.strategic_summary
+                )
+
                 self.save_summary()
                 return self.strategic_summary
 
         except Exception as e:
-            print(f"[ERROR] No se pudo actualizar el resumen: {e}")
+            get_logger("hybrid_memory").error(f"No se pudo actualizar el resumen: {e}")
             return self.strategic_summary
 
     def update_summary_manual(self, summary_text: str) -> None:
@@ -197,7 +213,9 @@ class HybridMemory:
             f"=== RESUMEN ESTRATÉGICO ===\n"
             f"{ctx['strategic_summary']}\n\n"
             f"=== POSICIÓN ACTUAL ===\n"
-            f"X={ctx['current_position']['x']}, Y={ctx['current_position']['y']}\n\n"
+            f"X={ctx['current_position']['x']}, "
+            f"Y={ctx['current_position']['y']}, "
+            f"Z={ctx['current_position']['z']}\n\n"
             f"=== EVENTOS RECIENTES ({len(ctx['recent_events'])}) ===\n"
             f"{recent_text}\n\n"
             f"=== INFO MISIÓN ===\n"
