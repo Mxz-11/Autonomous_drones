@@ -20,6 +20,7 @@ venv/
 
 # logs
 *.log
+VLM_Client/logs/*
 
 # OS
 .DS_Store
