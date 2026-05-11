@@ -1,7 +1,3 @@
-"""
-Codificación ligera de frames para VLM: redimensionado + JPEG con compresión.
-"""
-
 from __future__ import annotations
 
 import base64
@@ -14,7 +10,6 @@ from PIL import Image
 
 Profile = Literal["default", "tiny"]
 
-# Producción: ~384px, calidad 78 → más detalle para el VLM (accuracy > speed)
 DEFAULT_MAX_EDGE = 384
 DEFAULT_JPEG_QUALITY = 78
 
@@ -68,10 +63,6 @@ def encode_frame_for_vlm(
     *,
     profile: Profile = "default",
 ) -> tuple[str, str]:
-    """
-    Returns:
-        (base64_sin_prefijo, data_url) para usar con LangChain / OpenAI-style.
-    """
     if profile == "tiny":
         raw = frame_rgb_to_jpeg_bytes(
             frame_rgb, max_edge=TINY_MAX_EDGE, quality=TINY_JPEG_QUALITY
@@ -85,7 +76,6 @@ def encode_frame_for_vlm(
 
 
 def encode_both_profiles(frame_rgb: np.ndarray) -> tuple[str, str]:
-    """Principal + fallback compacto (reintento ante contexto lleno)."""
     b64_main, _ = encode_frame_for_vlm(frame_rgb, profile="default")
     b64_tiny, _ = encode_frame_for_vlm(frame_rgb, profile="tiny")
     return b64_main, b64_tiny
@@ -98,7 +88,6 @@ _CTX_ERR_RE = re.compile(
 
 
 def is_context_window_error(exc: BaseException) -> bool:
-    """Heurística OpenAI/LM Studio / límites de contexto."""
     msg = f"{type(exc).__name__} {exc}"
     if _CTX_ERR_RE.search(msg):
         return True

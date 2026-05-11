@@ -1,23 +1,9 @@
-"""
-agent_tools.py — Herramientas (Tools) que el agente LangChain puede invocar.
-
-Define funciones decoradas con @tool que permiten al agente:
-  - Registrar eventos en MissionState.
-  - Actualizar la memoria / resumen estratégico.
-  - Generar decisiones de vuelo.
-  - Enviar el payload completo a un modelo.
-  - Consultar el estado de la misión.
-
-Estas herramientas se inyectan al agente en vlm_client.py.
-"""
-
 import json
 import time
 from langchain_core.tools import tool
 
 from advanced_logger import MissionLogger, get_logger
 
-# --- Referencias globales ---
 _mission_state = None
 _hybrid_memory = None
 _decision_llm = None
@@ -25,12 +11,6 @@ _summary_llm = None
 
 
 def init_tools(mission_state, hybrid_memory, decision_llm, summary_llm):
-    """
-    Inicializa las referencias globales para que las tools puedan acceder
-    al estado de la misión, la memoria y los LLMs.
-
-    Debe llamarse una vez al arrancar el agente.
-    """
     global _mission_state, _hybrid_memory, _decision_llm, _summary_llm
     _mission_state = mission_state
     _hybrid_memory = hybrid_memory
@@ -38,9 +18,6 @@ def init_tools(mission_state, hybrid_memory, decision_llm, summary_llm):
     _summary_llm = summary_llm
 
 
-# =====================================================================
-# HERRAMIENTA 1: Registrar evento
-# =====================================================================
 @tool
 def register_event(actor: str, action: str, data: str = "") -> str:
     """
@@ -63,23 +40,19 @@ def register_event(actor: str, action: str, data: str = "") -> str:
         try:
             parsed_data = json.loads(data)
         except (json.JSONDecodeError, TypeError):
-            parsed_data = data  
+            parsed_data = data
 
     event = _mission_state.log_event(actor, action, parsed_data)
     result = f"Evento #{event['id']} registrado: [{actor}] {action}"
-    
+
     MissionLogger().log_tool_call("register_event", {"actor": actor, "action": action}, result, time.time() - t0)
     return result
 
 
-# =====================================================================
-# HERRAMIENTA 2: Actualizar memoria / resumen estratégico
-# =====================================================================
 @tool
 def update_memory() -> str:
     """
     Actualiza el resumen estratégico de la misión usando un LLM.
-    El LLM condensará los eventos recientes en un resumen de alto nivel.
     El resumen se persiste automáticamente en disco.
 
     Returns:
@@ -91,14 +64,11 @@ def update_memory() -> str:
     t0 = time.time()
     new_summary = _hybrid_memory.update_summary(_summary_llm)
     result = f"Resumen actualizado:\n{new_summary}"
-    
+
     MissionLogger().log_tool_call("update_memory", None, f"Length: {len(new_summary)}", time.time() - t0)
     return result
 
 
-# =====================================================================
-# HERRAMIENTA 3: Generar decisión de vuelo
-# =====================================================================
 @tool
 def generate_decision(situation: str = "") -> str:
     """
@@ -106,8 +76,7 @@ def generate_decision(situation: str = "") -> str:
     para decidir la siguiente acción del dron.
 
     Args:
-        situation: Descripción adicional de la situación actual
-                   (ej: 'El dron está cerca de un obstáculo').
+        situation: Descripción adicional de la situación actual.
 
     Returns:
         La decisión del LLM con movement y rotation.
@@ -152,14 +121,11 @@ def generate_decision(situation: str = "") -> str:
         return error_msg
 
 
-# =====================================================================
-# HERRAMIENTA 4: Enviar payload completo al modelo
-# =====================================================================
 @tool
 def send_full_payload(max_events: int = 50) -> str:
     """
     Envía el payload JSON completo del estado de la misión a un modelo LLM
-    y devuelve su respuesta. Útil para análisis profundo del estado.
+    y devuelve su respuesta.
 
     Args:
         max_events: Número máximo de eventos a incluir en el payload.
@@ -199,15 +165,11 @@ def send_full_payload(max_events: int = 50) -> str:
         return error_msg
 
 
-# =====================================================================
-# HERRAMIENTA 5: Consultar estado de la misión
-# =====================================================================
 @tool
 def get_mission_status() -> str:
     """
     Devuelve un resumen del estado actual de la misión, incluyendo
     el número de eventos, el resumen estratégico y los últimos eventos.
-    Útil para que el agente tenga visibilidad del estado antes de decidir.
 
     Returns:
         Texto con el estado completo de la misión.
@@ -221,20 +183,16 @@ def get_mission_status() -> str:
     return status
 
 
-# =====================================================================
-# Lista de todas las herramientas (se importa desde vlm_client.py)
-# =====================================================================
+# generate_decision y send_full_payload se excluyen del agente:
+# el propio agente ReAct ya es el decisor, llamarlas generaría
+# una segunda llamada al LLM innecesaria (~30s extra por frame).
 ALL_TOOLS = [
     register_event,
     update_memory,
     get_mission_status,
-    # generate_decision y send_full_payload se excluyen del agente:
-    # el propio agente ReAct ya es el decisor, llamarlas generaría
-    # una segunda llamada al LLM innecesaria (~30s extra por frame).
 ]
 
 
-# ================= TEST RÁPIDO =================
 if __name__ == "__main__":
     print("=" * 50)
     print("Test de Agent Tools (sin LLM)")

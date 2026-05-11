@@ -1,0 +1,802 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/bitcraze/crazyflie/protos/Crazyflie.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+
+WorldInfo {
+  info [
+    "Warehouse Search World — VLM Drone Navigation"
+    "3 objetos con QR codes:"
+    "  MEDKIT  -> caja blanca  en (X=5,  Y=2.5)"
+    "  ZONE_A  -> pallet amarillo en (X=5,  Y=-2.5)"
+    "  FRAGILE -> paquete naranja en (X=9,  Y=0)"
+    "Prompts: Busca MEDKIT / Encuentra ZONE_A / Acercate a FRAGILE"
+    "NOTA: coloca textures/qr_*.png junto al .wbt para ver los QR."
+  ]
+  title "Warehouse Search World"
+  basicTimeStep 8
+}
+Viewpoint {
+  orientation -0.13665240220048172 -0.09586992564102272 0.9859691061744391 4.274929585437061
+  position 3.283008438862796 7.624220095883051 2.804381531309542
+  follow "Crazyflie"
+  followType "Pan and Tilt Shot"
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+TexturedBackgroundLight {
+  luminosity 1.1
+}
+Floor {
+  size 30 20
+  appearance PBRAppearance {
+    baseColor 0.42 0.4 0.38
+    roughness 0.9
+    metalness 0
+  }
+}
+DEF WALL_BACK Solid {
+  translation -1 0 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.83 0.78
+        roughness 0.95
+      }
+      geometry Box {
+        size 0.15 22 3
+      }
+    }
+  ]
+  name "wall_back"
+  boundingObject Box {
+    size 0.15 22 3
+  }
+}
+DEF WALL_LEFT Solid {
+  translation 7 10 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.83 0.78
+        roughness 0.95
+      }
+      geometry Box {
+        size 18 0.15 3
+      }
+    }
+  ]
+  name "wall_left"
+  boundingObject Box {
+    size 18 0.15 3
+  }
+}
+DEF WALL_RIGHT Solid {
+  translation 7 -10 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.85 0.83 0.78
+        roughness 0.95
+      }
+      geometry Box {
+        size 18 0.15 3
+      }
+    }
+  ]
+  name "wall_right"
+  boundingObject Box {
+    size 18 0.15 3
+  }
+}
+DEF CAJA_MEDKIT Solid {
+  translation 5 2.5 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.95 0.95 0.93
+        roughness 0.75
+        metalness 0
+      }
+      geometry Box {
+        size 0.8 0.8 0.8
+      }
+    }
+  ]
+  name "caja_medkit"
+  boundingObject Box {
+    size 0.8 0.8 0.8
+  }
+  physics Physics {
+    density 200
+  }
+}
+DEF MEDKIT_CROSS_H Solid {
+  translation 5 2.5 0.82
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.9 0.05 0.05
+        roughness 0.6
+      }
+      geometry Box {
+        size 0.5 0.12 0.01
+      }
+    }
+  ]
+  name "medkit_cross_h"
+  boundingObject Box {
+    size 0.5 0.12 0.01
+  }
+}
+DEF MEDKIT_CROSS_V Solid {
+  translation 5 2.5 0.82
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.9 0.05 0.05
+        roughness 0.6
+      }
+      geometry Box {
+        size 0.12 0.5 0.01
+      }
+    }
+  ]
+  name "medkit_cross_v"
+  boundingObject Box {
+    size 0.12 0.5 0.01
+  }
+}
+DEF QR_MEDKIT_PANEL Solid {
+  translation 4.595 2.5 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "textures/qr_medkit.png"
+          ]
+          filtering 1
+        }
+        roughness 0.3
+        metalness 0
+      }
+      geometry Box {
+        size 0.01 0.65 0.65
+      }
+    }
+  ]
+  name "qr_medkit_panel"
+  boundingObject Box {
+    size 0.01 0.65 0.65
+  }
+}
+DEF PALLET_ZONE_A Solid {
+  translation 5 -2.5 0.09
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.88 0.78 0.05
+        roughness 0.85
+        metalness 0
+      }
+      geometry Box {
+        size 1.2 0.9 0.18
+      }
+    }
+  ]
+  name "pallet_zone_a"
+  boundingObject Box {
+    size 1.2 0.9 0.18
+  }
+  physics Physics {
+    density 400
+  }
+}
+DEF PALLET_ZONE_A_T1 Solid {
+  translation 5 -2.5 0.22
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.82 0.72 0.04
+        roughness 0.9
+      }
+      geometry Box {
+        size 1.2 0.14 0.08
+      }
+    }
+  ]
+  name "pallet_zone_a_t1"
+  boundingObject Box {
+    size 1.2 0.14 0.08
+  }
+}
+DEF PALLET_ZONE_A_T2 Solid {
+  translation 5 -2.85 0.22
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.82 0.72 0.04
+        roughness 0.9
+      }
+      geometry Box {
+        size 1.2 0.14 0.08
+      }
+    }
+  ]
+  name "pallet_zone_a_t2"
+  boundingObject Box {
+    size 1.2 0.14 0.08
+  }
+}
+DEF PALLET_ZONE_A_T3 Solid {
+  translation 5 -2.15 0.22
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.82 0.72 0.04
+        roughness 0.9
+      }
+      geometry Box {
+        size 1.2 0.14 0.08
+      }
+    }
+  ]
+  name "pallet_zone_a_t3"
+  boundingObject Box {
+    size 1.2 0.14 0.08
+  }
+}
+DEF QR_ZONE_A_PANEL Solid {
+  translation 4.395 -2.5 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "textures/qr_zone_a.png"
+          ]
+          filtering 1
+        }
+        roughness 0.3
+        metalness 0
+      }
+      geometry Box {
+        size 0.01 0.65 0.65
+      }
+    }
+  ]
+  name "qr_zone_a_panel"
+  boundingObject Box {
+    size 0.01 0.65 0.65
+  }
+}
+DEF PAQUETE_FRAGILE Solid {
+  translation 9 0 0.3
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.95 0.5 0.05
+        roughness 0.7
+        metalness 0
+      }
+      geometry Box {
+        size 0.9 0.55 0.6
+      }
+    }
+  ]
+  name "paquete_fragile"
+  boundingObject Box {
+    size 0.9 0.55 0.6
+  }
+  physics Physics {
+    density 150
+  }
+}
+DEF FRAGILE_STRIPE_1 Solid {
+  translation 9 0.2 0.6
+  rotation 0 0 1 0.52
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.1 0.1
+        roughness 0.6
+      }
+      geometry Box {
+        size 0.9 0.05 0.01
+      }
+    }
+  ]
+  name "fragile_stripe_1"
+  boundingObject Box {
+    size 0.9 0.05 0.01
+  }
+}
+DEF FRAGILE_STRIPE_2 Solid {
+  translation 9 -0.2 0.6
+  rotation 0 0 1 0.52
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.1 0.1 0.1
+        roughness 0.6
+      }
+      geometry Box {
+        size 0.9 0.05 0.01
+      }
+    }
+  ]
+  name "fragile_stripe_2"
+  boundingObject Box {
+    size 0.9 0.05 0.01
+  }
+}
+DEF QR_FRAGILE_PANEL Solid {
+  translation 8.545 0 0.35
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "textures/qr_fragile.png"
+          ]
+          filtering 1
+        }
+        roughness 0.3
+        metalness 0
+      }
+      geometry Box {
+        size 0.01 0.55 0.55
+      }
+    }
+  ]
+  name "qr_fragile_panel"
+  boundingObject Box {
+    size 0.01 0.55 0.55
+  }
+}
+DEF SHELF2_L_V1 Solid {
+  translation 3 5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_l_v1"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_L_V2 Solid {
+  translation 7 5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_l_v2"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_L_V3 Solid {
+  translation 11 5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_l_v3"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_L_H1 Solid {
+  translation 7 5.5 0.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.58 0.52 0.46
+        roughness 0.7
+        metalness 0.3
+      }
+      geometry Box {
+        size 8.1 0.5 0.04
+      }
+    }
+  ]
+  name "shelf2_l_h1"
+  boundingObject Box {
+    size 8.1 0.5 0.04
+  }
+}
+DEF SHELF2_L_H2 Solid {
+  translation 7 5.5 1.1
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.58 0.52 0.46
+        roughness 0.7
+        metalness 0.3
+      }
+      geometry Box {
+        size 8.1 0.5 0.04
+      }
+    }
+  ]
+  name "shelf2_l_h2"
+  boundingObject Box {
+    size 8.1 0.5 0.04
+  }
+}
+DEF SHELF2_BOX_L1 Solid {
+  translation 3.5 5.4 0.74
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.73 0.62 0.45
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.42 0.36 0.42
+      }
+    }
+  ]
+  name "shelf2_box_l1"
+  boundingObject Box {
+    size 0.42 0.36 0.42
+  }
+}
+DEF SHELF2_BOX_L2 Solid {
+  translation 6 5.4 0.74
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.7 0.6 0.43
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.42 0.36 0.42
+      }
+    }
+  ]
+  name "shelf2_box_l2"
+  boundingObject Box {
+    size 0.42 0.36 0.42
+  }
+}
+DEF SHELF2_BOX_L3 Solid {
+  translation 9.5 5.4 0.74
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.75 0.64 0.47
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.45 0.36 0.42
+      }
+    }
+  ]
+  name "shelf2_box_l3"
+  boundingObject Box {
+    size 0.45 0.36 0.42
+  }
+}
+DEF SHELF2_R_V1 Solid {
+  translation 3 -5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_r_v1"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_R_V2 Solid {
+  translation 7 -5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_r_v2"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_R_V3 Solid {
+  translation 11 -5.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.52 0.48 0.42
+        roughness 0.7
+        metalness 0.4
+      }
+      geometry Box {
+        size 0.06 0.06 1.8
+      }
+    }
+  ]
+  name "shelf2_r_v3"
+  boundingObject Box {
+    size 0.06 0.06 1.8
+  }
+}
+DEF SHELF2_R_H1 Solid {
+  translation 7 -5.5 0.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.58 0.52 0.46
+        roughness 0.7
+        metalness 0.3
+      }
+      geometry Box {
+        size 8.1 0.5 0.04
+      }
+    }
+  ]
+  name "shelf2_r_h1"
+  boundingObject Box {
+    size 8.1 0.5 0.04
+  }
+}
+DEF SHELF2_R_H2 Solid {
+  translation 7 -5.5 1.1
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.58 0.52 0.46
+        roughness 0.7
+        metalness 0.3
+      }
+      geometry Box {
+        size 8.1 0.5 0.04
+      }
+    }
+  ]
+  name "shelf2_r_h2"
+  boundingObject Box {
+    size 8.1 0.5 0.04
+  }
+}
+DEF SHELF2_BOX_R1 Solid {
+  translation 4.5 -5.4 0.74
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.71 0.61 0.44
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.42 0.36 0.42
+      }
+    }
+  ]
+  name "shelf2_box_r1"
+  boundingObject Box {
+    size 0.42 0.36 0.42
+  }
+}
+DEF SHELF2_BOX_R2 Solid {
+  translation 8.5 -5.4 0.74
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.68 0.58 0.41
+        roughness 0.85
+      }
+      geometry Box {
+        size 0.5 0.36 0.42
+      }
+    }
+  ]
+  name "shelf2_box_r2"
+  boundingObject Box {
+    size 0.5 0.36 0.42
+  }
+}
+DEF PILLAR2_1 Solid {
+  translation 0.5 4.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.48 0.46 0.42
+        roughness 0.7
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.2 0.2 3
+      }
+    }
+  ]
+  name "pillar2_1"
+  boundingObject Box {
+    size 0.2 0.2 3
+  }
+}
+DEF PILLAR2_2 Solid {
+  translation 0.5 -4.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.48 0.46 0.42
+        roughness 0.7
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.2 0.2 3
+      }
+    }
+  ]
+  name "pillar2_2"
+  boundingObject Box {
+    size 0.2 0.2 3
+  }
+}
+DEF PILLAR2_3 Solid {
+  translation 12 4.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.48 0.46 0.42
+        roughness 0.7
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.2 0.2 3
+      }
+    }
+  ]
+  name "pillar2_3"
+  boundingObject Box {
+    size 0.2 0.2 3
+  }
+}
+DEF PILLAR2_4 Solid {
+  translation 12 -4.5 1.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.48 0.46 0.42
+        roughness 0.7
+        metalness 0.2
+      }
+      geometry Box {
+        size 0.2 0.2 3
+      }
+    }
+  ]
+  name "pillar2_4"
+  boundingObject Box {
+    size 0.2 0.2 3
+  }
+}
+DEF BG_BOX_1 Solid {
+  translation 12 3.5 0.3
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.64 0.56 0.4
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "bg_box_1"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF BG_BOX_2 Solid {
+  translation 12 3.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.62 0.54 0.38
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "bg_box_2"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF BG_BOX_3 Solid {
+  translation 12 -3.5 0.3
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.66 0.57 0.42
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "bg_box_3"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+DEF BG_BOX_4 Solid {
+  translation 12 -3.5 0.9
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.63 0.55 0.39
+        roughness 0.9
+      }
+      geometry Box {
+        size 0.6 0.6 0.6
+      }
+    }
+  ]
+  name "bg_box_4"
+  boundingObject Box {
+    size 0.6 0.6 0.6
+  }
+}
+Crazyflie {
+  translation 0 0 0.03389
+  rotation 0 0 -1 0
+  extensionSlot [
+    Camera {
+      translation 0.05 0 0.01
+      rotation 1 0 0 0
+      name "vlm_camera"
+      fieldOfView 1.2
+      width 324
+      height 324
+    }
+  ]
+}

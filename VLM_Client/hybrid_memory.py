@@ -1,12 +1,3 @@
-"""
-hybrid_memory.py — Memoria híbrida para el agente de misión.
-
-Combina:
-  1. Resumen estratégico persistente en disco (JSON).
-  2. Buffer de eventos recientes (referencia al MissionState).
-  3. Actualización automática del resumen usando un LLM.
-"""
-
 import json
 import os
 from datetime import datetime, timezone
@@ -27,26 +18,12 @@ DEFAULT_SUMMARY_PATH = os.path.join(
 
 
 class HybridMemory:
-    """
-    Memoria híbrida que combina un resumen estratégico persistente
-    en disco con un buffer de eventos recientes del MissionState.
-
-    El resumen puede actualizarse automáticamente invocando un LLM
-    que condensa los eventos recientes en una narrativa de alto nivel.
-    """
-
     def __init__(
         self,
         mission_state: MissionState,
         summary_path: str = DEFAULT_SUMMARY_PATH,
         recent_events_count: int = 20,
     ):
-        """
-        Args:
-            mission_state:       Referencia al estado global de la misión.
-            summary_path:        Ruta del fichero JSON para persistir el resumen.
-            recent_events_count: Número de eventos recientes a mantener en el buffer.
-        """
         self.mission_state = mission_state
         self.summary_path = summary_path
         self.recent_events_count = recent_events_count
@@ -57,14 +34,7 @@ class HybridMemory:
 
         self.load_summary()
 
-    # ---------- Persistencia en disco ----------
     def load_summary(self) -> bool:
-        """
-        Carga el resumen estratégico desde disco.
-
-        Returns:
-            True si se cargó correctamente, False si no existía.
-        """
         if not os.path.exists(self.summary_path):
             return False
 
@@ -80,7 +50,6 @@ class HybridMemory:
             return False
 
     def save_summary(self) -> None:
-        """Guarda el resumen estratégico en disco como JSON."""
         data = {
             "mission_name": self.mission_state.mission_name,
             "summary": self.strategic_summary,
@@ -90,22 +59,11 @@ class HybridMemory:
         with open(self.summary_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-    # ---------- Actualizar resumen con LLM ----------
     def update_summary(self, llm: ChatOpenAI) -> str:
-        """
-        Usa un LLM para condensar los eventos recientes en un resumen
-        estratégico actualizado. El resultado se persiste en disco.
-
-        Args:
-            llm: Modelo de lenguaje para generar el resumen.
-
-        Returns:
-            El nuevo resumen estratégico generado.
-        """
         recent = self.mission_state.get_recent_events(self.recent_events_count)
 
         if not recent:
-            return self.strategic_summary  
+            return self.strategic_summary
 
         events_text = json.dumps(recent, indent=2, ensure_ascii=False)
 
@@ -140,7 +98,6 @@ class HybridMemory:
                 span.set_attribute("summary.length", len(self.strategic_summary))
                 span.set_attribute("events.summarized", self.events_summarized_count)
 
-                # Track tokens
                 tokens = extract_token_usage(response)
                 model_name = getattr(llm, "model_name", "summary_llm")
                 MissionLogger().log_llm_call(
@@ -160,30 +117,12 @@ class HybridMemory:
             return self.strategic_summary
 
     def update_summary_manual(self, summary_text: str) -> None:
-        """
-        Actualiza el resumen estratégico manualmente (sin usar LLM).
-
-        Args:
-            summary_text: Texto del nuevo resumen.
-        """
         self.strategic_summary = summary_text
         self.last_summary_update = datetime.now(timezone.utc).isoformat()
         self.events_summarized_count = self.mission_state.total_events
         self.save_summary()
 
-    # ---------- Contexto combinado ----------
     def get_context(self) -> dict[str, Any]:
-        """
-        Genera el contexto completo combinando resumen estratégico
-        y eventos recientes. Este dict se puede pasar al agente
-        para que tenga toda la información disponible.
-
-        Returns:
-            Dict con:
-              - strategic_summary: Resumen de alto nivel.
-              - recent_events: Últimos N eventos.
-              - mission_info: Metadata de la misión.
-        """
         return {
             "strategic_summary": self.strategic_summary or "(Sin resumen disponible)",
             "last_summary_update": self.last_summary_update,
@@ -200,10 +139,6 @@ class HybridMemory:
         }
 
     def get_context_text(self) -> str:
-        """
-        Genera el contexto como texto plano, ideal para inyectar
-        en el prompt del agente.
-        """
         ctx = self.get_context()
         recent_text = "\n".join(
             f"  [{e['timestamp']}] {e['actor']}: {e['action']} → {e.get('data', '')}"
@@ -225,14 +160,6 @@ class HybridMemory:
         )
 
     def should_update_summary(self, every_n_events: int = 20) -> bool:
-        """
-        Indica si es momento de actualizar el resumen estratégico.
-        Devuelve True si han pasado al menos N eventos desde
-        la última actualización.
-
-        Args:
-            every_n_events: Cada cuántos eventos nuevos actualizar.
-        """
         new_events = self.mission_state.total_events - self.events_summarized_count
         return new_events >= every_n_events
 
@@ -243,7 +170,6 @@ class HybridMemory:
         )
 
 
-# ================= TEST RÁPIDO =================
 if __name__ == "__main__":
     from telemetry import init_telemetry
     init_telemetry("test_hybrid_memory", enable_console=False)

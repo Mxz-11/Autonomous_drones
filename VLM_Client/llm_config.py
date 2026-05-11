@@ -1,14 +1,3 @@
-"""
-Configuración LLM: ChatOpenAI → servidor local estilo OpenAI (LM Studio).
-
-Variables de entorno:
-  LMSTUDIO_OPENAI_BASE — URL base API OpenAI-compatible (ej. http://127.0.0.1:1234/v1)
-  OPENAI_API_KEY       — clave; LM Studio suele aceptar cualquier string no vacío
-
-LM Studio expone normalmente en otro puerto la API /api/v1/chat nativa;
-este cliente usa /v1/chat/completions vía langchain_openai.ChatOpenAI.
-"""
-
 from __future__ import annotations
 
 import os
@@ -21,8 +10,6 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_openai import ChatOpenAI
 
-# ================= CONFIGURACIÓN =================
-
 LMSTUDIO_OPENAI_BASE = os.environ.get(
     "LMSTUDIO_OPENAI_BASE",
     "http://127.0.0.1:1235/v1",
@@ -33,10 +20,6 @@ LMSTUDIO_NATIVE_BASE_URL = os.environ.get("LMSTUDIO_NATIVE_BASE", "http://localh
 
 
 def probe_openai_compatible_server(timeout: float = 5.0) -> tuple[bool, str]:
-    """
-    Comprueba reachability de la API estilo OpenAI (LM Studio muestra el URL al iniciar el servidor local).
-    Debe responder GET {base}/models.
-    """
     base = LMSTUDIO_OPENAI_BASE.rstrip("/")
     url = f"{base}/models"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
@@ -75,29 +58,49 @@ def is_probably_network_llm_error(exc: BaseException) -> bool:
         "unreachable",
     )
     return any(n in s for n in needles)
+
+
 LMSTUDIO_CHAT_PATH = "/api/v1/chat"
 
-# Modelos disponibles en LM Studio (descomentar para probar)
-# DECISION_MODEL_ID = "ggml-org/smolvlm2-2.2b-instruct"
-DECISION_MODEL_ID = "qwen/qwen3.5-9b"
-# DECISION_MODEL_ID = "qwen/qwen3-vl-8b"
+# Para cambiar de modelo: edita ACTIVE_VLM_MODEL con una de las claves de VLM_MODELS.
+# También puedes sobreescribirlo sin tocar código vía: export VLM_MODEL=smolvlm2
+VLM_MODELS: dict[str, str] = {
+    "smolvlm2":     "ggml-org/smolvlm2-2.2b-instruct",
+    "qwen3.5-9b":   "qwen/qwen3.5-9b",
+    "qwen3-vl-8b":  "qwen/qwen3-vl-8b",
+}
+
+ACTIVE_VLM_MODEL = "qwen3.5-9b"
+
+_env_model = os.environ.get("VLM_MODEL", "").strip()
+if _env_model:
+    if _env_model not in VLM_MODELS:
+        raise ValueError(
+            f"VLM_MODEL='{_env_model}' no está registrado. "
+            f"Opciones válidas: {list(VLM_MODELS)}"
+        )
+    ACTIVE_VLM_MODEL = _env_model
+
+if ACTIVE_VLM_MODEL not in VLM_MODELS:
+    raise ValueError(
+        f"ACTIVE_VLM_MODEL='{ACTIVE_VLM_MODEL}' no está registrado. "
+        f"Opciones válidas: {list(VLM_MODELS)}"
+    )
+
+DECISION_MODEL_ID = VLM_MODELS[ACTIVE_VLM_MODEL]
 DECISION_TEMPERATURE = 0.1
 DECISION_MAX_TOKENS = 128
 DECISION_TIMEOUT_S = 90.0
 
-SUMMARY_MODEL_ID = "qwen/qwen3-vl-8b"
-# SUMMARY_MODEL_ID = "qwen/qwen3.5-9b"
+ACTIVE_SUMMARY_MODEL = "qwen3-vl-8b"
+SUMMARY_MODEL_ID = VLM_MODELS[ACTIVE_SUMMARY_MODEL]
 SUMMARY_TEMPERATURE = 0.4
 SUMMARY_MAX_TOKENS = 384
 SUMMARY_TIMEOUT_S = 90.0
 
 
 class LMStudioCompatChatOpenAI(ChatOpenAI):
-    """
-    ChatOpenAI adaptado para LM Studio: intenta bind_tools real para que
-    ReAct funcione con modelos que soportan function-calling (ej. Qwen3).
-    Si el servidor no lo soporta, cae a self con warning explícito.
-    """
+    """ChatOpenAI adaptado a LM Studio: bind_tools cae a self con warning si el servidor no soporta function-calling."""
 
     _bind_tools_supported: bool = True
 
@@ -134,7 +137,6 @@ def _base_chat_openai(
         "api_key": OPENAI_API_KEY,
         "max_retries": 0,
     }
-    # Compatibilidad versiones que aún aceptan openai_api_base
     try:
         return LMStudioCompatChatOpenAI(**kwargs)
     except TypeError:
@@ -143,7 +145,6 @@ def _base_chat_openai(
 
 
 def get_decision_llm() -> LMStudioCompatChatOpenAI:
-    """Retorna el cliente OpenAI-compatible (soporta image_url multimodal)."""
     return _base_chat_openai(
         DECISION_MODEL_ID,
         DECISION_TEMPERATURE,
@@ -183,12 +184,7 @@ def get_custom_llm(
         return LMStudioCompatChatOpenAI(**kwargs)
 
 
-# ================= API nativa LM Studio (opcional / diagnóstico) =================
-
-
 class LMStudioChat(BaseChatModel):
-    """BaseChatModel → POST /api/v1/chat (sin imágenes multimodales enriquecidas)."""
-
     model_name: str
     temperature: float = 0.3
     max_tokens: int = 256
@@ -270,7 +266,6 @@ class LMStudioChat(BaseChatModel):
         if "output" in data:
             out_obj = data["output"]
             if isinstance(out_obj, list) and out_obj:
-                # Buscar el último bloque "message" (no "reasoning")
                 message_block = None
                 for block in reversed(out_obj):
                     if isinstance(block, dict) and block.get("type") == "message":
@@ -279,7 +274,6 @@ class LMStudioChat(BaseChatModel):
                 if message_block is not None:
                     content = message_block.get("content", "")
                 elif isinstance(out_obj[0], dict):
-                    # Fallback: si no hay bloque "message", usar el último
                     content = out_obj[-1].get("content", "")
                 else:
                     content = str(out_obj)
@@ -289,7 +283,7 @@ class LMStudioChat(BaseChatModel):
             choices = data.get("choices", [])
             if choices:
                 content = choices[0].get("message", {}).get("content", "")
-        # Parsear token usage: formato OpenAI ("usage") o nativo LM Studio ("stats")
+        # LM Studio nativo expone uso en "stats" en vez de "usage"
         usage_raw = data.get("usage", {})
         if not usage_raw:
             stats = data.get("stats", {})

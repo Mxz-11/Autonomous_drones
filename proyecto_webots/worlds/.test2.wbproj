@@ -4,10 +4,8 @@ simulationViewPerspectives: 000000ff0000000100000002000001450000051b010000000201
 sceneTreePerspectives: 000000ff00000001000000030000001e000000c0000000fa0100000002010000000200
 maximizedDockId: -1
 centralWidgetVisible: 1
-projectionMode: PERSPECTIVE
 orthographicViewHeight: 1
 textFiles: 0 "controllers/crazyflie/crazyflie.c"
-globalOptionalRendering: CameraFrustums
 consoles: Console:All:All
-renderingDevicePerspectives: Crazyflie:camera;0;1;0;0
-renderingDevicePerspectives: Crazyflie:vlm_camera;1;1.26235;0;0
+renderingDevicePerspectives: Crazyflie:camera;1;1;0;0
+renderingDevicePerspectives: Crazyflie:vlm_camera;1;1;0;0

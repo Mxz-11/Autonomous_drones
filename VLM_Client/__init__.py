@@ -1,9 +1,3 @@
-"""
-__init__.py — Paquete VLM_Client.
-
-Exporta los componentes principales para facilitar importaciones.
-"""
-
 from .mission_state import MissionState
 from .hybrid_memory import HybridMemory
 from .llm_config import get_decision_llm, get_summary_llm, get_custom_llm
@@ -25,4 +19,3 @@ __all__ = [
     "MissionLogger",
     "get_logger",
 ]
-

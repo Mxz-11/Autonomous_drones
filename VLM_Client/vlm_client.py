@@ -1,25 +1,3 @@
-"""
- ██╗   ██╗██╗     ███╗   ███╗     ██████╗██╗     ██╗███████╗███╗   ██╗████████╗
- ██║   ██║██║     ████╗ ████║    ██╔════╝██║     ██║██╔════╝████╗  ██║╚══██╔══╝
- ██║   ██║██║     ██╔████╔██║    ██║     ██║     ██║█████╗  ██╔██╗ ██║   ██║   
- ╚██╗ ██╔╝██║     ██║╚██╔╝██║    ██║     ██║     ██║██╔══╝  ██║╚██╗██║   ██║   
-  ╚████╔╝ ███████╗██║ ╚═╝ ██║    ╚██████╗███████╗██║███████╗██║ ╚████║   ██║   
-   ╚═══╝  ╚══════╝╚═╝     ╚═╝     ╚═════╝╚══════╝╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝  
-  ───────────────────────────────────────────────────────────────────────────────
-   vlm_client.py  —  LangChain Agent · Drone VLM Controller
-  ───────────────────────────────────────────────────────────────────────────────
-   Done by: Mxz-11 (Maximo Valenciano Alvarez)
-  ───────────────────────────────────────────────────────────────────────────────
-
-   ┌─────────┐  socket   ┌──────────────┐  LangChain  ┌──────────┐
-   │ Webots  │◄──────────│  vlm_client  │────────────►│ LM Studio│
-   │  (dron) │ cmd/frames│   (agente)   │  decisions  │  (LLM)   │
-   └─────────┘           └──────┬───────┘             └──────────┘
-                      MissionState · HybridMem · AgentTools
-  ───────────────────────────────────────────────────────────────────────────────
-   TCP Socket :9002  │  ReAct Agent  │  Pull-based frames 
-"""
-
 import os
 import socket
 import struct
@@ -51,7 +29,6 @@ from vision_pipeline import encode_both_profiles, jpeg_b64_to_data_url, is_conte
 from telemetry import init_telemetry, get_tracer, get_meter
 from advanced_logger import MissionLogger, get_logger, extract_token_usage
 
-# ================= PROMPT DEBUG LOG =================
 
 _PROMPT_LOG_DIR = os.path.join(os.path.dirname(__file__), "logs", "prompts")
 os.makedirs(_PROMPT_LOG_DIR, exist_ok=True)
@@ -66,14 +43,9 @@ def _log_llm_request(
     response_text: str,
     latency_s: float,
 ) -> None:
-    """
-    Guarda en disco el prompt EXACTO enviado al LLM y la imagen,
-    para poder depurar qué está viendo y recibiendo el modelo.
-    """
     logger = get_logger("prompt_debug")
     ts = time.strftime("%H%M%S")
 
-    # Guardar imagen JPEG decodificada
     import base64 as _b64
     img_path = os.path.join(_PROMPT_LOG_DIR, f"frame_{frame_id:05d}.jpg")
     try:
@@ -83,7 +55,6 @@ def _log_llm_request(
         logger.warning("No se pudo guardar imagen frame %d: %s", frame_id, e)
         img_path = "<error>"
 
-    # Guardar prompt completo como JSON
     prompt_path = os.path.join(_PROMPT_LOG_DIR, f"frame_{frame_id:05d}_prompt.json")
     prompt_data = {
         "frame_id": frame_id,
@@ -102,7 +73,6 @@ def _log_llm_request(
     except Exception as e:
         logger.warning("No se pudo guardar prompt frame %d: %s", frame_id, e)
 
-    # Log conciso en consola
     logger.info(
         "[PROMPT] frame=%d mode=%s | sys=%d chars | user=%s | img=%d bytes b64 | resp=%s | %.1fs",
         frame_id, mode,
@@ -113,7 +83,6 @@ def _log_llm_request(
         latency_s,
     )
 
-# ================= CONFIGURACIÓN =================
 
 WEBOTS_IP = "127.0.0.1"
 WEBOTS_PORT = 9002
@@ -124,15 +93,15 @@ MAX_YAW = 0.18
 MAX_DESCEND = -0.18
 MAX_ASCEND = 0.22
 
-# Factor divisor de velocidad: ralentiza el dron para compensar latencia LLM.
-# 1.0 = velocidad normal, 2.0 = mitad de velocidad, 5.0 = un quinto.
-# Configurable con: export VLM_SPEED_DIVISOR=2
+# Divisor de velocidad para compensar latencia LLM. 1.0 = normal, 5.0 = un quinto.
+# Override: export VLM_SPEED_DIVISOR=2
 try:
     SPEED_DIVISOR = max(1.0, float(os.environ.get("VLM_SPEED_DIVISOR", "2.0")))
 except ValueError:
     SPEED_DIVISOR = 2.0
-# Rate limiter: en modo síncrono solo limita si el LLM responde muy rápido.
-# En modo async mantiene el ritmo de control desacoplado.
+
+# En modo síncrono solo limita si el LLM responde muy rápido;
+# en async marca el ritmo de control desacoplado del LLM.
 CONTROL_RATE_HZ = 2.0
 CONTROL_PERIOD_S = 1.0 / CONTROL_RATE_HZ
 
@@ -149,7 +118,7 @@ ROT_CORRECTION_THRESHOLD_Y = 0.8
 HIGH_Y_ERROR_THRESHOLD = 2.0
 DECISION_MAX_LATENCY_S = 60.0
 USE_LLM_GUIDANCE = True
-HEADING_MIN_STEP = 0.05       # más sensible: detecta movimiento desde 5cm
+HEADING_MIN_STEP = 0.05
 HEADING_KP = 0.70             # bajado de 1.15 → evita oscilaciones
 HEADING_SMOOTH_ALPHA = 0.40   # suavizado exponencial en rotation (0=sin suavizar, 1=congelar)
 ARRIVAL_RADIUS = 0.6
@@ -161,20 +130,13 @@ OBSTACLE_STRONG_SCORE = 0.28
 OBSTACLE_ALT_CRUISE_Z = 0.60
 OBSTACLE_ALT_MAX_Z = 1.80
 
-# Activar recepción de posición GPS desde el controlador.
 # Requiere que crazyflie.c esté recompilado con el envío de GPS.
-# Si usas el controlador antiguo, pon esto a False.
 POSITION_ENABLED = True
-# Número de floats GPS enviados por el controlador:
-# 2 -> (x,y), 3 -> (x,y,z). Si llega 2D, z se asumirá 0.0.
+# 2 → (x,y); 3 → (x,y,z). Si llega 2D, z se asume 0.0.
 POSITION_PACKET_FLOATS = 3
 
-# ---- Modo de inferencia LLM ----
-# SYNC (por defecto): Espera al LLM antes de pedir otro frame.
-#   → Elimina requests zombie al 100%. Cada decisión corresponde al frame actual.
-#   → El ritmo lo marca el LLM (~2-30s por frame).
-# ASYNC (VLM_ASYNC_MODE=1): Comportamiento anterior con LLMWorker en hilo.
-#   → Más rápido pero con resultados stale y posibles zombies.
+# SYNC: espera al LLM antes del siguiente frame (0 zombies, ritmo del LLM).
+# ASYNC (VLM_ASYNC_MODE=1): worker en hilo, más rápido pero con resultados stale.
 SYNC_LLM_MODE = os.environ.get("VLM_ASYNC_MODE", "0").strip().lower() not in (
     "1",
     "true",
@@ -182,16 +144,16 @@ SYNC_LLM_MODE = os.environ.get("VLM_ASYNC_MODE", "0").strip().lower() not in (
     "on",
 )
 
-# Modo agente ReAct: varias llamadas HTTP al LLM por frame (pensamiento + tools + …).
-# Modo directo (False): una sola llamada por frame — recomendado para tiempo real / LM Studio.
-# Activa con: export VLM_USE_AGENT=1
+# Modo agente ReAct: varias llamadas LLM por frame (pensamiento + tools).
+# Modo directo (False, por defecto): una sola llamada por frame.
 USE_AGENT_MODE = os.environ.get("VLM_USE_AGENT", "0").strip().lower() in (
     "1",
     "true",
     "yes",
     "on",
 )
-# Tope de pasos del grafo ReAct (evita bucles largos; no fuerza 1 sola llamada).
+
+
 def _agent_recursion_limit() -> int:
     try:
         return max(4, int(os.environ.get("VLM_AGENT_RECURSION_LIMIT", "12")))
@@ -201,13 +163,8 @@ def _agent_recursion_limit() -> int:
 
 AGENT_RECURSION_LIMIT = _agent_recursion_limit()
 
-# ================================================
-
-
-# ================= SOCKET a Webots =================
 
 def connect_to_webots() -> socket.socket:
-    """Conecta al servidor de Webots con reintentos automáticos."""
     logger = get_logger("socket")
     while True:
         try:
@@ -222,7 +179,6 @@ def connect_to_webots() -> socket.socket:
 
 
 def recv_exact(sock: socket.socket, n: int) -> bytes:
-    """Recibe exactamente N bytes del socket."""
     data = b""
     while len(data) < n:
         try:
@@ -234,8 +190,6 @@ def recv_exact(sock: socket.socket, n: int) -> bytes:
         data += packet
     return data
 
-
-# ================= PROMPT DEL SISTEMA =================
 
 VLM_DIRECT_SYSTEM = (
     "You are a drone's visual navigation system. You see the drone's front camera.\n"
@@ -274,15 +228,12 @@ def build_vlm_user_text(
         return line
     ctx = hybrid_memory.get_context_text().replace("\n", " ").strip()
     if len(ctx) > VLM_USER_CTX_CHARS:
-        ctx = ctx[-VLM_USER_CTX_CHARS :]
+        ctx = ctx[-VLM_USER_CTX_CHARS:]
     return f"{line} | {ctx}" if ctx else line
 
 
-# ================= LLM WORKER (hilo desacoplado) =================
-
 @dataclass
 class LLMResult:
-    """Resultado de una inferencia LLM, compartido entre hilos."""
     movement: float = 0.8
     rotation: float = 0.0
     answer: str = "movement=0.8, rotation=0.0"
@@ -293,19 +244,9 @@ class LLMResult:
 
 class LLMWorker:
     """
-    Hilo dedicado al LLM desacoplado del bucle de control.
-
-    El bucle principal deposita frames en una cola de tamaño 1
-    (el más reciente siempre gana). El hilo LLM procesa a su
-    propio ritmo y escribe el resultado en `last_result`.
-
-    Principios de diseño:
-      - Queue maxsize=1: si llega un frame nuevo mientras el LLM
-        está ocupado, el frame viejo se descarta. Así el modelo
-        siempre ve el estado más actual cuando termina.
-      - El bucle de control nunca espera: lee `last_result` y sigue.
-      - `is_busy` permite al bucle saber si hay inferencia en curso
-        (útil para decidir si usar GPS fallback o resultado cacheado).
+    Hilo desacoplado del bucle de control. La cola tiene maxsize=1: si llega
+    un frame nuevo mientras el LLM está ocupado, el viejo se descarta para
+    que el modelo siempre vea el estado más actual cuando termina.
     """
 
     def __init__(self):
@@ -319,7 +260,6 @@ class LLMWorker:
         self._total_inferences = 0
         self._total_dropped = 0
 
-        # Referencias a los objetos del sistema (se inyectan en start())
         self._agent = None
         self._decision_llm = None
         self._mission_state = None
@@ -328,10 +268,6 @@ class LLMWorker:
 
     def start(self, agent, decision_llm, mission_state, hybrid_memory,
               use_agent_mode: bool = False) -> None:
-        """
-        Arranca el hilo worker. Debe llamarse una vez, después de
-        inicializar todos los componentes del sistema.
-        """
         self._agent = agent
         self._decision_llm = decision_llm
         self._mission_state = mission_state
@@ -353,15 +289,6 @@ class LLMWorker:
         frame_id: int,
         img_b64_fb: Optional[str] = None,
     ) -> bool:
-        """
-        Envía un frame al worker para su procesamiento.
-
-        Si la cola ya tiene un frame pendiente (LLM ocupado),
-        descarta el frame antiguo y encola el nuevo.
-
-        Returns:
-            True si se encoló correctamente, False si el worker está parado.
-        """
         if self._stop_event.is_set():
             return False
 
@@ -371,7 +298,7 @@ class LLMWorker:
             "img_b64_fb": img_b64_fb,
         }
 
-        # Descartar frame viejo si el LLM no da abasto
+        # Descartar frame viejo si el LLM no da abasto.
         if self._queue.full():
             try:
                 self._queue.get_nowait()
@@ -386,7 +313,6 @@ class LLMWorker:
             return False
 
     def get_result(self) -> LLMResult:
-        """Devuelve el último resultado disponible (thread-safe)."""
         with self._lock:
             return LLMResult(
                 movement=self.last_result.movement,
@@ -398,10 +324,9 @@ class LLMWorker:
             )
 
     def stop(self, timeout: float = 5.0) -> None:
-        """Para el worker de forma limpia."""
         self._stop_event.set()
         try:
-            self._queue.put_nowait(None)   # señal de parada
+            self._queue.put_nowait(None)
         except Exception:
             pass
         if self._thread is not None:
@@ -413,16 +338,15 @@ class LLMWorker:
         )
 
     def _run(self) -> None:
-        """Bucle interno del hilo worker."""
         logger = get_logger("llm_worker")
         while not self._stop_event.is_set():
             try:
                 payload = self._queue.get(timeout=1.0)
             except Exception:
-                continue   # timeout → comprobar stop_event y volver
+                continue
 
             if payload is None:
-                break      # señal de parada
+                break
 
             img_b64 = payload["img_b64"]
             frame_id = payload["frame_id"]
@@ -460,12 +384,11 @@ class LLMWorker:
 
             except Exception as e:
                 logger.error(f"Error en LLM Worker (frame {frame_id}): {e}")
-                # Mantener el último resultado válido, no sobreescribir con zeros
+                # Mantener último resultado válido; no sobreescribir con ceros.
             finally:
                 self.is_busy = False
 
 
-# Instancia global del worker
 _llm_worker = LLMWorker()
 
 _LLM_NET_ERR_LOG_INTERVAL_S = 20.0
@@ -473,7 +396,6 @@ _llm_network_error_last_full_log_ts: float = 0.0
 
 
 def _log_throttled_llm_network_error(logger_name: str, exc: BaseException) -> None:
-    """Evita inundar logs si el servidor LM Studio no está accesible."""
     global _llm_network_error_last_full_log_ts
     log = get_logger(logger_name)
     now = time.time()
@@ -489,20 +411,7 @@ def _log_throttled_llm_network_error(logger_name: str, exc: BaseException) -> No
         log.debug("LLM (red, suprimido): %s", exc)
 
 
-# ================= INICIALIZACIÓN DEL AGENTE =================
-
 def create_agent_system():
-    """
-    Crea y configura todo el sistema del agente:
-      1. LLMs locales (decisión + resumen).
-      2. MissionState (log de eventos).
-      3. HybridMemory (resumen persistente + buffer).
-      4. Agent Tools (herramientas invocables).
-      5. Agente ReAct de LangGraph.
-
-    Returns:
-        Tupla (agent, mission_state, hybrid_memory, decision_llm)
-    """
     ml = MissionLogger()
     logger = get_logger("init")
     logger.info("=" * 60)
@@ -556,7 +465,6 @@ def create_agent_system():
             tools=ALL_TOOLS,
             prompt=SYSTEM_PROMPT,
         )
-        # Verificar si bind_tools realmente funcionó
         if not getattr(decision_llm, "_bind_tools_supported", True):
             logger.warning(
                 "      ⚠ bind_tools NO soportado por el modelo. "
@@ -579,28 +487,16 @@ def create_agent_system():
     return agent, mission_state, hybrid_memory, decision_llm
 
 
-# ================= PROCESAMIENTO DE FRAME =================
-
 def decode_frame_rgb(frame_bytes: bytes, width: int, height: int) -> np.ndarray:
-    """
-    Decodifica bytes RGBA a array RGB (H, W, 3).
-    """
     frame = np.frombuffer(frame_bytes, np.uint8).reshape((height, width, 4))
     return frame[:, :, :3]
 
 
 def estimate_obstacle_avoidance(frame_rgb: np.ndarray) -> tuple[bool, float, float, float]:
-    """
-    Detecta bloqueo frontal en el frame y propone corrección:
-      - blocked: si hay obstáculo frontal probable.
-      - avoid_rotation: giro recomendado (-1 izquierda, +1 derecha).
-      - speed_scale: factor multiplicador para movement.
-      - center_score: severidad del bloqueo frontal.
-    """
+    """Devuelve (blocked, avoid_rotation, speed_scale, center_score)."""
     h, w, _ = frame_rgb.shape
     gray = frame_rgb.astype(np.float32).mean(axis=2) / 255.0
 
-    # ROI frontal (zona media-baja de la imagen).
     y0, y1 = int(h * 0.45), int(h * 0.92)
     x0, x1 = int(w * 0.12), int(w * 0.88)
     roi = gray[y0:y1, x0:x1]
@@ -627,7 +523,6 @@ def estimate_obstacle_avoidance(frame_rgb: np.ndarray) -> tuple[bool, float, flo
         return False, 0.0, 1.0, center_score
 
     severity = min(1.0, max(0.0, (center_score - OBSTACLE_CENTER_THRESHOLD) / 0.35))
-    # Girar hacia el lado con menor ocupación visual.
     turn_sign = -1.0 if left_score < right_score else 1.0
     avoid_rotation = turn_sign * min(0.95, 0.30 + 0.55 * severity)
     speed_scale = max(0.20, 1.0 - 0.70 * severity)
@@ -636,15 +531,6 @@ def estimate_obstacle_avoidance(frame_rgb: np.ndarray) -> tuple[bool, float, flo
 
 
 def parse_movement(answer: str) -> tuple[float, float]:
-    """
-    Extrae movement y rotation de la respuesta del agente.
-
-    Args:
-        answer: Texto de respuesta del agente.
-
-    Returns:
-        Tupla (movement, rotation) con valores numéricos.
-    """
     answer_lower = str(answer).lower().strip()
 
     movement = 0.0
@@ -666,14 +552,10 @@ def parse_movement(answer: str) -> tuple[float, float]:
 
 
 def compute_rule_based_control(pos_x: float, pos_y: float) -> tuple[float, float, float, str]:
-    """
-    Controlador determinista para garantizar avance de misión incluso si el LLM
-    falla, responde lento o no respeta formato.
-    """
+    """Controlador determinista de respaldo si el LLM falla o tarda demasiado."""
     dx = TARGET_X - pos_x
 
     if dx <= TARGET_X_REACHED_TOL:
-        # En zona objetivo: detener avance horizontal y descender.
         landing_rotation = max(-0.3, min(0.3, -0.15 * pos_y))
         return 0.0, landing_rotation, MAX_DESCEND, "landing"
 
@@ -699,31 +581,26 @@ def apply_control_guardrails(
     pos_y: float,
     llm_latency: float,
 ) -> tuple[float, float, float, str]:
-    """
-    Aplica reglas de seguridad para que el dron no se quede en avance ciego.
-    """
     rb_movement, rb_rotation, rb_vz, phase = compute_rule_based_control(pos_x, pos_y)
 
-    # Si la inferencia tarda demasiado, priorizar totalmente control determinista.
     if llm_latency > DECISION_MAX_LATENCY_S:
         return rb_movement, rb_rotation, rb_vz, f"{phase}_latency_fallback"
 
-    # Siempre asegurar consistencia de misión.
     if phase == "landing":
         return rb_movement, rb_rotation, rb_vz, "landing_guardrail"
 
     movement = llm_movement
     rotation = llm_rotation
 
-    # Guardrail 1: lejos del objetivo, no aceptar velocidades demasiado bajas.
+    # Lejos del objetivo, no aceptar velocidades demasiado bajas.
     if TARGET_X - pos_x > TARGET_X_REACHED_TOL:
         movement = max(movement, rb_movement)
 
-    # Guardrail 2: desacelerar cuando está cerca del objetivo.
+    # Cerca del objetivo, desacelerar.
     if TARGET_X - pos_x <= TARGET_X_SLOWDOWN_RADIUS:
         movement = min(movement, rb_movement)
 
-    # Guardrail 3: asegurar dirección y magnitud de corrección lateral.
+    # Asegurar dirección/magnitud de la corrección lateral.
     y_error = pos_y - TARGET_Y
     if abs(y_error) > ROT_CORRECTION_THRESHOLD_Y:
         wrong_direction = (rotation * rb_rotation) < 0
@@ -731,7 +608,7 @@ def apply_control_guardrails(
         if wrong_direction or insufficient:
             rotation = rb_rotation
 
-    # Guardrail 4: si el error lateral es muy alto, reducir avance para priorizar centrado.
+    # Error lateral muy alto → priorizar centrado sobre avance.
     if abs(y_error) > HIGH_Y_ERROR_THRESHOLD:
         movement = min(movement, 0.45)
 
@@ -741,21 +618,14 @@ def apply_control_guardrails(
 
 
 def _normalize_angle(rad: float) -> float:
-    """Normaliza ángulos al rango [-pi, pi]."""
     return math.atan2(math.sin(rad), math.cos(rad))
 
 
-_last_rotation: float = 0.0   # estado interno para suavizado exponencial
+_last_rotation: float = 0.0
 
 
 def compute_gps_guided_control(mission_state: MissionState) -> tuple[float, float, float, str]:
-    """
-    Controlador GPS mejorado:
-    - Promedia los últimos 3 vectores de desplazamiento para estimar heading estable.
-    - Bootstrap proporcional al error angular directo (no a Y directamente).
-    - Suavizado exponencial en rotation para evitar oscilaciones.
-    - Mantiene altitud mínima de crucero si llega coordenada Z.
-    """
+    """Heading promediado sobre últimos vectores + suavizado exponencial para evitar oscilaciones."""
     global _last_rotation
     pos = mission_state.position
     x, y, z = pos["x"], pos["y"], pos.get("z", 0.0)
@@ -767,7 +637,6 @@ def compute_gps_guided_control(mission_state: MissionState) -> tuple[float, floa
         _last_rotation = 0.0
         return 0.0, 0.0, MAX_DESCEND, "gps_landing"
 
-    # ---- Estimar heading actual promediando últimos 3 desplazamientos ----
     history = mission_state.get_recent_positions(4)
     heading_known = False
     heading_now = 0.0
@@ -794,18 +663,16 @@ def compute_gps_guided_control(mission_state: MissionState) -> tuple[float, floa
         raw_rotation = max(-0.9, min(0.9, HEADING_KP * heading_error))
         phase = "gps_track_heading"
     else:
-        # Bootstrap: corrección proporcional al error lateral, con saturación suave.
-        # Evita el -0.22*y que se saturaba a ±0.8 cuando |Y| era grande.
+        # Bootstrap proporcional al error lateral con saturación suave;
+        # evita el -0.22*y que se saturaba a ±0.8 cuando |Y| era grande.
         y_sign = math.copysign(1.0, y) if abs(y) > 0.1 else 0.0
-        lateral_factor = min(1.0, abs(y) / 4.0)  # escala lineal hasta Y=4m, luego cte
+        lateral_factor = min(1.0, abs(y) / 4.0)
         raw_rotation = -y_sign * 0.55 * lateral_factor
         phase = "gps_bootstrap_heading"
 
-    # Suavizado exponencial: evita cambios bruscos de yaw frame a frame
     rotation = HEADING_SMOOTH_ALPHA * _last_rotation + (1.0 - HEADING_SMOOTH_ALPHA) * raw_rotation
     _last_rotation = rotation
 
-    # ---- Velocidad de avance según distancia y error angular ----
     if dist > 12.0:
         movement = 0.90
     elif dist > 6.0:
@@ -822,7 +689,6 @@ def compute_gps_guided_control(mission_state: MissionState) -> tuple[float, floa
         elif abs_err > 0.6:
             movement = min(movement, 0.32)
 
-    # ---- Altitud de crucero (solo si viene Z real) ----
     vz = 0.0
     if POSITION_PACKET_FLOATS == 3:
         cruise_z = getattr(compute_gps_guided_control, "_cruise_z", 0.55)
@@ -834,8 +700,6 @@ def compute_gps_guided_control(mission_state: MissionState) -> tuple[float, floa
     return movement, rotation, vz, phase
 
 
-# ================= INVOCACIÓN DEL AGENTE =================
-
 def invoke_agent(
     agent,
     mission_state: MissionState,
@@ -844,20 +708,6 @@ def invoke_agent(
     frame_id: int,
     img_b64_fb: Optional[str] = None,
 ) -> tuple[float, float, str]:
-    """
-    Invoca al agente LangGraph con el frame actual y el contexto de la misión.
-
-    Args:
-        agent: Agente ReAct de LangGraph.
-        mission_state: Estado global de la misión.
-        hybrid_memory: Memoria híbrida del agente.
-        img_b64: JPEG base64 (sin prefijo data:).
-        frame_id: ID secuencial del frame.
-        img_b64_fb: JPEG base64 más pequeño para reintento si el contexto excede.
-
-    Returns:
-        Tupla (movement, rotation) decidida por el agente.
-    """
     mission_state.log_event("vlm", "frame_received", {
         "frame_id": frame_id,
         "timestamp": time.time(),
@@ -914,7 +764,6 @@ def invoke_agent(
                 response_preview=answer,
             )
 
-        # Guardar prompt exacto + imagen para depuración
         _log_llm_request(
             frame_id=frame_id,
             mode="agent",
@@ -946,8 +795,6 @@ def invoke_agent(
         return 0.0, 0.0, ""
 
 
-# ================= INVOCACIÓN DIRECTA (sin agente) =================
-
 def invoke_direct_llm(
     decision_llm,
     mission_state: MissionState,
@@ -956,12 +803,6 @@ def invoke_direct_llm(
     frame_id: int,
     img_b64_fb: Optional[str] = None,
 ) -> tuple[float, float, str]:
-    """
-    Modo alternativo: invoca al LLM directamente SIN pasar por el agente.
-    Útil como fallback o para comparar rendimiento.
-
-    Envía la imagen + contexto directamente al modelo multimodal.
-    """
     pos = mission_state.position
     user_text = build_vlm_user_text(frame_id, pos, hybrid_memory)
 
@@ -1009,7 +850,6 @@ def invoke_direct_llm(
             response_preview=answer,
         )
 
-        # Guardar prompt exacto + imagen para depuración
         _log_llm_request(
             frame_id=frame_id,
             mode="direct",
@@ -1036,24 +876,7 @@ def invoke_direct_llm(
         return 0.0, 0.0, ""
 
 
-# ================= LOOP PRINCIPAL =================
-
 def main():
-    """
-    Loop principal del cliente VLM.
-
-    1. Inicializa telemetría OpenTelemetry.
-    2. Inicializa el sistema de agente.
-    3. Conecta a Webots por socket.
-    4. Para cada frame recibido:
-       a. Convierte a base64.
-       b. Recibe posición X/Y/Z del dron.
-       c. Invoca al agente (o LLM directo como fallback).
-       d. Parsea movement/rotation.
-       e. Envía comando al dron.
-       f. Actualiza la memoria periódicamente.
-    """
-    # ---- Telemetría ----
     init_telemetry("vlm_client")
     tracer = get_tracer("main_loop")
     meter = get_meter("drone_metrics")
@@ -1086,7 +909,6 @@ def main():
 
     agent, mission_state, hybrid_memory, decision_llm = create_agent_system()
 
-    # Determinar modo de operación
     if USE_AGENT_MODE:
         mission_mode = "agent"
     elif USE_LLM_GUIDANCE and SYNC_LLM_MODE:
@@ -1103,7 +925,6 @@ def main():
         "webots_port": WEBOTS_PORT,
     })
 
-    # ---- Arrancar el worker LLM solo en modo ASYNC ----
     use_async_worker = (USE_LLM_GUIDANCE or USE_AGENT_MODE) and not SYNC_LLM_MODE
     if use_async_worker:
         _llm_worker.start(
@@ -1121,7 +942,7 @@ def main():
 
     frame_id = 0
     next_control_tick = time.perf_counter()
-    _consecutive_llm_failures = 0  # track para GPS fallback automático
+    _consecutive_llm_failures = 0
 
     print("\n[LOOP] Iniciando bucle principal...")
     if USE_AGENT_MODE:
@@ -1143,13 +964,11 @@ def main():
 
     while True:
         try:
-            # Limita la frecuencia de decisiones/comandos para evitar control a trompicones.
             now = time.perf_counter()
             if now < next_control_tick:
                 time.sleep(next_control_tick - now)
             next_control_tick = max(next_control_tick + CONTROL_PERIOD_S, time.perf_counter())
 
-            # ---- Solicitar frame al controlador (pull-based) ----
             try:
                 sock.send(b"FRAME\n")
             except BrokenPipeError:
@@ -1161,7 +980,6 @@ def main():
                 sock = connect_to_webots()
                 continue
 
-            # ---- Leer header + frame + posición (con tracing) ----
             with tracer.start_as_current_span("frame_receive") as span:
                 header = recv_exact(sock, 8)
                 w, h = struct.unpack("ii", header)
@@ -1178,7 +996,6 @@ def main():
                 img_bytes = recv_exact(sock, w * h * 4)
                 frame_rgb = decode_frame_rgb(img_bytes, w, h)
 
-                # ---- Recibir posición GPS (2 o 3 floats) ----
                 pos_x, pos_y, pos_z = 0.0, 0.0, 0.0
                 if POSITION_ENABLED:
                     if POSITION_PACKET_FLOATS not in (2, 3):
@@ -1189,7 +1006,7 @@ def main():
                     else:
                         pos_x, pos_y, pos_z = struct.unpack("fff", pos_bytes)
 
-                    # Validar GPS: NaN/Inf rompen el control del dron
+                    # NaN/Inf rompen el control del dron.
                     if math.isfinite(pos_x) and math.isfinite(pos_y) and math.isfinite(pos_z):
                         mission_state.update_position(pos_x, pos_y, pos_z)
                     else:
@@ -1212,19 +1029,13 @@ def main():
                 span.set_attribute("drone.pos_x", pos_x)
                 span.set_attribute("drone.pos_y", pos_y)
                 span.set_attribute("drone.pos_z", pos_z)
-                
+
                 ml.log_frame_received(frame_id, w, h, pos_x, pos_y, pos_z)
 
-            # ---- Decidir movimiento (con tracing) ----
             with tracer.start_as_current_span("agent_invoke") as span:
                 t0 = time.time()
 
                 if (USE_LLM_GUIDANCE or USE_AGENT_MODE) and SYNC_LLM_MODE:
-                    # ============================================================
-                    # MODO SÍNCRONO: Llama al LLM y ESPERA el resultado.
-                    # Garantiza 0 requests zombie — cada decisión corresponde
-                    # exactamente al frame que acaba de recibir.
-                    # ============================================================
                     img_b64, img_b64_fb = encode_both_profiles(frame_rgb)
 
                     try:
@@ -1240,7 +1051,6 @@ def main():
                             )
                         latency = time.time() - t0
 
-                        # Verificar si la respuesta fue vacía (error interno)
                         if not answer:
                             raise RuntimeError("LLM returned empty response")
 
@@ -1261,15 +1071,12 @@ def main():
                             "LLM sync falló (intento %d, %.1fs): %s",
                             _consecutive_llm_failures, latency, sync_exc,
                         )
-                        # GPS fallback para este frame — el siguiente se reintenta con LLM
+                        # GPS fallback para este frame; el siguiente reintenta con LLM.
                         movement, rotation, guarded_vz, phase = compute_gps_guided_control(mission_state)
                         answer = f"sync_gps_fallback (fail #{_consecutive_llm_failures})"
                         guarded_movement, guarded_rotation, guard_reason = movement, rotation, phase
 
                 elif (USE_LLM_GUIDANCE or USE_AGENT_MODE) and not SYNC_LLM_MODE:
-                    # ============================================================
-                    # MODO ASÍNCRONO (legacy): Worker en hilo separado.
-                    # ============================================================
                     img_b64, img_b64_fb = encode_both_profiles(frame_rgb)
                     _llm_worker.submit(img_b64, frame_id, img_b64_fb)
 
@@ -1302,7 +1109,6 @@ def main():
                         phase = "llm_async" if not USE_AGENT_MODE else "agent_async"
 
                 else:
-                    # Modo GPS puro (USE_LLM_GUIDANCE=False)
                     movement, rotation, guarded_vz, phase = compute_gps_guided_control(mission_state)
                     answer = f"gps_controller phase={phase}"
                     latency = time.time() - t0
@@ -1340,8 +1146,8 @@ def main():
                         original_vz = vz
                         rotation = avoid_rotation
                         movement = max(0.0, min(1.0, movement * speed_scale))
-                        # Evasión vertical: ante bloqueo frontal, subir para sortear.
-                        # Si no tenemos Z real (controlador 2D), igualmente ordenamos ascenso.
+                        # Sin Z real (controlador 2D) ordenamos ascenso ciego;
+                        # con Z real escalamos el ascenso por la severidad del obstáculo.
                         if POSITION_PACKET_FLOATS == 2:
                             vz = max(vz, MAX_ASCEND * 0.7)
                         else:
@@ -1378,8 +1184,7 @@ def main():
 
                 ml.log_agent_decision(frame_id, movement, rotation, latency, f"{answer} | guard={guard_reason}")
 
-            # ---- Calcular y enviar comando (con tracing) ----
-            # Aplicar divisor de velocidad ("cámara lenta") para compensar latencia LLM
+            # "Cámara lenta": divide los comandos para compensar la latencia del LLM.
             vx = (movement * MAX_FORWARD) / SPEED_DIVISOR
             vy = 0.0
             vz = vz / SPEED_DIVISOR
@@ -1408,7 +1213,6 @@ def main():
                     sock.close()
                     sock = connect_to_webots()
 
-            # ---- Actualizar resumen periódicamente ----
             if ENABLE_SUMMARY_UPDATES and hybrid_memory.should_update_summary(SUMMARY_UPDATE_INTERVAL):
                 ml.log_system("Iniciando actualización de resumen estratégico...")
                 try:
@@ -1428,7 +1232,6 @@ def main():
                 except Exception as e:
                     ml.log_error("hybrid_memory", f"Error actualizando resumen: {e}")
 
-            # ---- Limitar log de eventos (evitar memory leak) ----
             if mission_state.total_events > 200:
                 removed = mission_state.clear_old_events(keep_last_n=100)
                 ml.log_system(f"Eventos antiguos limpiados: {removed}", level=logging.DEBUG)
@@ -1469,6 +1272,5 @@ def main():
             time.sleep(1)
 
 
-# ================= ENTRY POINT =================
 if __name__ == "__main__":
     main()

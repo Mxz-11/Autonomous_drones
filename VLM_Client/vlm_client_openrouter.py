@@ -13,7 +13,6 @@ import re
 
 load_dotenv()
 
-# ================= CONFIG =================
 WEBOTS_IP = "127.0.0.1"
 WEBOTS_PORT = 9002
 
@@ -21,17 +20,15 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_API_KEY = os.getenv("OPEN_ROUTER_APIKEY")
 MODEL_ID = "nvidia/nemotron-nano-12b-v2-vl:free"
 
-FPS = 3  # frames por segundo al VLM
+FPS = 3
 
-# Factor divisor de velocidad: ralentiza el dron para compensar latencia LLM.
-# 1.0 = velocidad normal, 2.0 = mitad de velocidad, 5.0 = un quinto.
-# Configurable con: export VLM_SPEED_DIVISOR=2
+# Divisor de velocidad para compensar latencia LLM. 1.0 = normal, 5.0 = un quinto.
+# Override: export VLM_SPEED_DIVISOR=2
 try:
     SPEED_DIVISOR = max(1.0, float(os.environ.get("VLM_SPEED_DIVISOR", "2.0")))
 except ValueError:
     SPEED_DIVISOR = 2.0
 
-# ---- Prompt debug log: guarda imagen + prompt + respuesta por frame ----
 _PROMPT_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "prompts")
 os.makedirs(_PROMPT_LOG_DIR, exist_ok=True)
 
@@ -55,7 +52,6 @@ SYSTEM_PROMPT_TEXT = (
 
 
 def _log_llm_request(frame_id, img_b64, user_text, response_text, latency_s):
-    """Guarda imagen PNG + prompt + respuesta del frame para depuración."""
     ts = time.strftime("%H%M%S")
     img_path = os.path.join(_PROMPT_LOG_DIR, f"frame_{frame_id:05d}.png")
     try:
@@ -83,12 +79,9 @@ def _log_llm_request(frame_id, img_b64, user_text, response_text, latency_s):
             json.dump(prompt_data, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[WARN] No se pudo guardar prompt frame {frame_id}: {e}")
-# =========================================
 
 
-# ================= SOCKET =================
 def connect_to_webots():
-    """Connect to Webots with retry"""
     while True:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,6 +91,7 @@ def connect_to_webots():
         except ConnectionRefusedError:
             print("[WARN] Connection refused, retrying in 2s...")
             time.sleep(2)
+
 
 sock = connect_to_webots()
 
@@ -122,10 +116,8 @@ print(f"[INIT] Prompts/imágenes guardados en: {_PROMPT_LOG_DIR}")
 if SPEED_DIVISOR > 1.0:
     print(f"[SLOW-MO] Velocidad dividida x{SPEED_DIVISOR:.1f} (VLM_SPEED_DIVISOR)")
 
-# ================= LOOP ===================
 while True:
     try:
-        # ---- Pedir frame (protocolo pull-based del controlador) ----
         try:
             sock.send(b"FRAME\n")
         except BrokenPipeError:
@@ -134,11 +126,10 @@ while True:
             sock = connect_to_webots()
             continue
 
-        # ---- Leer header ----
         header = recv_exact(8)
         w, h = struct.unpack("ii", header)
 
-        # Validar header (evitar MemoryError por valores basura)
+        # Validar header: valores basura provocan MemoryError al reservar el buffer.
         if w <= 0 or h <= 0 or w > 2000 or h > 2000:
             print(f"[ERROR] Invalid header: {w}x{h}, reconnecting...")
             sock.close()
@@ -147,15 +138,13 @@ while True:
 
         img_bytes = recv_exact(w * h * 4)
 
-        # ---- Leer posición GPS (3 floats = 12 bytes) ----
         pos_bytes = recv_exact(12)
         gps_x, gps_y, gps_z = struct.unpack("fff", pos_bytes)
 
         frame_id += 1
 
-        # ---- Procesar frame ----
         frame = np.frombuffer(img_bytes, np.uint8).reshape((h, w, 4))
-        frame = frame[:, :, :3]  # RGBA -> RGB
+        frame = frame[:, :, :3]
         image = Image.fromarray(frame)
 
         buf = io.BytesIO()
@@ -164,7 +153,6 @@ while True:
 
         user_text = f"#{frame_id} X={gps_x:.2f} Y={gps_y:.2f} Z={gps_z:.2f}"
 
-        # ---- payload para OpenRouter ----
         payload = {
             "model": MODEL_ID,
             "messages": [
@@ -191,7 +179,6 @@ while True:
             "Content-Type": "application/json",
         }
 
-        # ---- llamada al VLM ----
         t_llm_start = time.time()
         answer = None
         try:
@@ -202,7 +189,6 @@ while True:
             resp = {"error": str(e)}
         llm_latency = time.time() - t_llm_start
 
-        # ---- parseo ROBUSTO de respuesta ----
         if "choices" in resp:
             try:
                 answer = resp["choices"][0]["message"]["content"]
@@ -213,7 +199,6 @@ while True:
         elif "content" in resp:
             answer = resp["content"]
 
-        # Respuesta vacía o error del proveedor → logear y seguir sin mover
         if not answer:
             err_msg = str(resp)[:200]
             print(f"[WARN #{frame_id}] respuesta vacía/error del proveedor: {err_msg}")
@@ -228,7 +213,6 @@ while True:
 
         answer_lower = answer.lower().strip()
 
-        # ---- parseo movement / rotation ----
         movement = 0.0
         rotation = 0.0
 
@@ -240,7 +224,6 @@ while True:
         if r:
             rotation = float(r.group(1))
 
-        # ---- guardar prompt + imagen + respuesta para depuración ----
         _log_llm_request(
             frame_id=frame_id,
             img_b64=img_b64,
@@ -249,9 +232,8 @@ while True:
             latency_s=llm_latency,
         )
 
-        # ---- control continuo con divisor de velocidad (cámara lenta) ----
-        MAX_FORWARD = 0.5   # velocidad máxima
-        MAX_YAW = 0.8       # rotación máxima
+        MAX_FORWARD = 0.5
+        MAX_YAW = 0.8
 
         vx = (movement * MAX_FORWARD) / SPEED_DIVISOR
         vy = 0.0
