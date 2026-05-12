@@ -20,13 +20,27 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <signal.h>
+#ifdef _WIN32
+
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #include <windows.h>
+
+  #pragma comment(lib, "ws2_32.lib")
+
+  #define close closesocket
+
+#else
+
+  #include <unistd.h>
+  #include <fcntl.h>
+  #include <errno.h>
+  #include <arpa/inet.h>
+  #include <sys/socket.h>
+  #include <netinet/tcp.h>
+  #include <signal.h>
+
+#endif
 
 #include <webots/robot.h>
 #include <webots/motor.h>
@@ -49,6 +63,10 @@ static float gps_x = 0, gps_y = 0, gps_z = 0;
 /* ================= TCP ================= */
 
 static void init_tcp() {
+  #ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2,2), &wsa);
+  #endif
   server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
   /* Permitir reconexión rápida sin esperar TIME_WAIT */
@@ -63,11 +81,22 @@ static void init_tcp() {
   bind(server_fd, (struct sockaddr *)&addr, sizeof(addr));
   listen(server_fd, 1);
 
-  int flags = fcntl(server_fd, F_GETFL, 0);
-  fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
+  #ifdef _WIN32
+
+    u_long mode = 1;
+    ioctlsocket(server_fd, FIONBIO, &mode);
+  
+  #else
+  
+    int flags = fcntl(server_fd, F_GETFL, 0);
+    fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
+  
+  #endif
 
   printf("[TCP] Listening on %d\n", TCP_PORT);
-  signal(SIGPIPE, SIG_IGN);
+  #ifndef _WIN32
+    signal(SIGPIPE, SIG_IGN);
+  #endif
 }
 
 static int frame_requested = 0;
@@ -97,7 +126,11 @@ static void handle_tcp() {
   }
 
   char buf[256];
-  int n = recv(client_fd, buf, sizeof(buf) - 1, MSG_DONTWAIT);
+  #ifdef _WIN32
+    int n = recv(client_fd, buf, sizeof(buf) - 1, 0);
+  #else
+    int n = recv(client_fd, buf, sizeof(buf) - 1, MSG_DONTWAIT);
+  #endif
   if (n > 0) {
     buf[n] = '\0';
     /* Parse all lines in the buffer (may contain multiple messages) */
