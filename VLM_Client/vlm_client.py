@@ -194,20 +194,26 @@ def recv_exact(sock: socket.socket, n: int) -> bytes:
 VLM_DIRECT_SYSTEM = (
     "You are a drone's visual navigation system. You see the drone's front camera.\n"
     "\n"
-    "MISSION: Fly forward to X=27, land on the green H helipad (at Y≈0).\n"
+    "MISSION: Fly forward to X=27, land on the green H helipad (Y=0).\n"
     "\n"
-    "THINK STEP BY STEP (briefly):\n"
-    "1. What do you see ahead? (obstacles, open space, helipad, buildings)\n"
-    "2. Is the path clear or blocked?\n"
-    "3. Are we drifting left/right from the goal line (Y≈0)?\n"
+    "You receive: frame number, GPS position (X forward, Y lateral, Z altitude).\n"
+    "Y=0 is the goal line. Y<0 means drone is LEFT of goal → rotate RIGHT (positive).\n"
+    "Y>0 means drone is RIGHT of goal → rotate LEFT (negative).\n"
+    "Any |Y| > 0.2 requires rotation correction. |Y| > 0.5 is significant drift.\n"
     "\n"
-    "Then output EXACTLY this as the LAST line of your response:\n"
-    "movement=<0.0 to 1.0>, rotation=<-1.0 to 1.0>\n"
+    "Look at the image and answer in 2-3 lines:\n"
+    "1. What is ahead? (obstacles / open space / helipad)\n"
+    "2. Is path clear?\n"
+    "3. Y drift status and required correction.\n"
     "\n"
-    "Where:\n"
-    "- movement: forward speed (0=stop, 0.3=slow, 0.6=moderate, 1=full)\n"
-    "- rotation: turn direction (negative=left, positive=right, 0=straight)\n"
-    "  Use small values like ±0.1–0.3 for gentle corrections, ±0.5–1.0 only for sharp turns."
+    "LAST line MUST be exactly:\n"
+    "movement=<0.0–1.0>, rotation=<-1.0–1.0>\n"
+    "\n"
+    "movement: 0=stop, 0.6=cruise, 1.0=full\n"
+    "rotation: negative=turn left, positive=turn right, 0=straight\n"
+    "Use ±0.1–0.3 for gentle, ±0.5–1.0 for sharp turns.\n"
+    "\n"
+    "/no_think"
 )
 
 SYSTEM_PROMPT = (
@@ -223,13 +229,21 @@ def build_vlm_user_text(
     pos: dict,
     hybrid_memory: HybridMemory,
 ) -> str:
-    line = f"#{frame_id} X={pos['x']:.2f} Y={pos['y']:.2f} Z={pos['z']:.2f}"
+    x, y, z = pos['x'], pos['y'], pos['z']
+    y_drift = f"LEFT {abs(y):.2f}m" if y < -0.05 else (f"RIGHT {y:.2f}m" if y > 0.05 else "centered")
+    line = f"Frame #{frame_id} | GPS: X={x:.2f} Y={y:.2f} Z={z:.2f} | Y-drift: {y_drift}"
     if VLM_USER_CTX_CHARS <= 0:
         return line
-    ctx = hybrid_memory.get_context_text().replace("\n", " ").strip()
-    if len(ctx) > VLM_USER_CTX_CHARS:
-        ctx = ctx[-VLM_USER_CTX_CHARS:]
-    return f"{line} | {ctx}" if ctx else line
+    ctx = hybrid_memory.get_context_text()
+    # Strip raw dict fragments — only keep lines that look like human-readable summaries.
+    clean_lines = [
+        l.strip() for l in ctx.splitlines()
+        if l.strip() and not l.strip().startswith("'") and "pos_x" not in l and "===" not in l
+    ]
+    ctx_clean = " ".join(clean_lines)
+    if len(ctx_clean) > VLM_USER_CTX_CHARS:
+        ctx_clean = ctx_clean[-VLM_USER_CTX_CHARS:]
+    return f"{line} | {ctx_clean}" if ctx_clean else line
 
 
 @dataclass

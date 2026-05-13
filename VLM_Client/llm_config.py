@@ -70,7 +70,7 @@ VLM_MODELS: dict[str, str] = {
     "qwen3-vl-8b":  "qwen/qwen3-vl-8b",
 }
 
-ACTIVE_VLM_MODEL = "qwen3.5-9b"
+ACTIVE_VLM_MODEL = "qwen3-vl-8b"
 
 _env_model = os.environ.get("VLM_MODEL", "").strip()
 if _env_model:
@@ -89,7 +89,7 @@ if ACTIVE_VLM_MODEL not in VLM_MODELS:
 
 DECISION_MODEL_ID = VLM_MODELS[ACTIVE_VLM_MODEL]
 DECISION_TEMPERATURE = 0.1
-DECISION_MAX_TOKENS = 128
+DECISION_MAX_TOKENS = 512
 DECISION_TIMEOUT_S = 90.0
 
 ACTIVE_SUMMARY_MODEL = "qwen3-vl-8b"
@@ -136,6 +136,9 @@ def _base_chat_openai(
         "base_url": LMSTUDIO_OPENAI_BASE,
         "api_key": OPENAI_API_KEY,
         "max_retries": 0,
+        # Qwen3 thinking mode consumes all max_tokens before producing content.
+        # extra_body passes this field directly in the request JSON (bypasses SDK validation).
+        "extra_body": {"enable_thinking": False},
     }
     try:
         return LMStudioCompatChatOpenAI(**kwargs)
