@@ -19,7 +19,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation 0.2539572359100868 0.19923072418904814 -0.9464738986723383 1.9060390236105895
-  position 2.3624499419954312 6.249722742132521 3.929409503575826
+  position 5.459199077945037 16.770664492381634 10.39036310544244
   follow "Crazyflie"
   followType "Pan and Tilt Shot"
 }
@@ -38,7 +38,7 @@ Floor {
   }
 }
 DEF WALL_BACK Solid {
-  translation -1 0 1.5
+  translation -2.05 0 1.5
   children [
     Shape {
       appearance PBRAppearance {
@@ -673,6 +673,23 @@ Crazyflie {
       fieldOfView 1.2
       width 324
       height 324
+    }
+    DistanceSensor {
+      translation 0.05 0 0
+      name "dist_front"
+      lookupTable [
+        0 0 0
+        4 4 0
+      ]
+      type "infra-red"
+    }
+    Camera {
+      translation 0 0 -0.02
+      rotation 0 1 0 1.5708
+      name "down_camera"
+      fieldOfView 1
+      width 160
+      height 160
     }
   ]
 }

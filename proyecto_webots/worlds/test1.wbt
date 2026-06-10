@@ -559,5 +559,21 @@ Crazyflie {
       width 324
       height 324
     }
+    DistanceSensor {
+      translation 0.05 0 0
+      rotation 0 0 1 0
+      name "dist_front"
+      lookupTable [ 0 0 0  4.0 4.0 0 ]
+      type "infra-red"
+      numberOfRays 1
+    }
+    Camera {
+      translation 0 0 -0.02
+      rotation 0 1 0 1.5708
+      name "down_camera"
+      fieldOfView 1.0
+      width 160
+      height 160
+    }
   ]
 }

@@ -12,7 +12,6 @@ class _Colors:
     RESET   = "\033[0m"
     BOLD    = "\033[1m"
     DIM     = "\033[2m"
-
     RED     = "\033[91m"
     GREEN   = "\033[92m"
     YELLOW  = "\033[93m"
@@ -20,7 +19,6 @@ class _Colors:
     MAGENTA = "\033[95m"
     CYAN    = "\033[96m"
     WHITE   = "\033[97m"
-
     SYSTEM  = "\033[92m"
     LLM     = "\033[96m"
     AGENT   = "\033[94m"
@@ -33,10 +31,10 @@ class _Colors:
 
 class ColoredConsoleFormatter(logging.Formatter):
     LEVEL_COLORS = {
-        logging.DEBUG:    _Colors.DIM,
-        logging.INFO:     _Colors.WHITE,
-        logging.WARNING:  _Colors.YELLOW,
-        logging.ERROR:    _Colors.RED,
+        logging.DEBUG: _Colors.DIM,
+        logging.INFO: _Colors.WHITE,
+        logging.WARNING: _Colors.YELLOW,
+        logging.ERROR: _Colors.RED,
         logging.CRITICAL: f"{_Colors.BOLD}{_Colors.RED}",
     }
 
@@ -90,22 +88,16 @@ class MissionLogger:
     _instance: "MissionLogger | None" = None
 
     def __new__(cls, *args, **kwargs):
-        # Singleton: una sola instancia por proceso.
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
+            
         return cls._instance
 
-    def __init__(
-        self,
-        log_dir: str | None = None,
-        console_level: int = logging.INFO,
-        file_level: int = logging.INFO,
-        max_file_bytes: int = 5 * 1024 * 1024,
-        backup_count: int = 10,
-    ):
+    def __init__(self, log_dir: str | None = None, console_level: int = logging.INFO, file_level: int = logging.INFO, max_file_bytes: int = 5 * 1024 * 1024, backup_count: int = 10):
         if self._initialized:
             return
+        
         self._initialized = True
 
         self.session_id = uuid.uuid4().hex[:12]
@@ -125,13 +117,12 @@ class MissionLogger:
             "memory_updates": 0,
             "errors": 0,
         }
-        # Muestreo para evitar logs por frame excesivos.
+
         self._log_every_n_frames = max(1, int(os.getenv("VLM_LOG_EVERY_N_FRAMES", "20")))
 
         if log_dir is None:
-            log_dir = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "logs"
-            )
+            log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+
         os.makedirs(log_dir, exist_ok=True)
         self.log_dir = log_dir
 
@@ -139,7 +130,6 @@ class MissionLogger:
         self._root_logger.setLevel(logging.DEBUG)
         self._root_logger.propagate = False
 
-        # Limpiar handlers previos por si se reimporta el módulo.
         self._root_logger.handlers.clear()
 
         console_handler = logging.StreamHandler()
@@ -151,30 +141,15 @@ class MissionLogger:
         log_filename = f"session_{session_ts}_{self.session_id}.jsonl"
         log_path = os.path.join(log_dir, log_filename)
 
-        file_handler = RotatingFileHandler(
-            log_path,
-            maxBytes=max_file_bytes,
-            backupCount=backup_count,
-            encoding="utf-8",
-        )
+        file_handler = RotatingFileHandler(log_path, maxBytes=max_file_bytes, backupCount=backup_count, encoding="utf-8")
         file_handler.setLevel(file_level)
         file_handler.setFormatter(JsonLineFormatter())
         self._root_logger.addHandler(file_handler)
 
         self.log_path = log_path
+        self._log("system", logging.INFO, "SYS", f"Session started | id={self.session_id} | "f"log_file={log_filename}")
 
-        self._log("system", logging.INFO, "SYS",
-                  f"Session started | id={self.session_id} | "
-                  f"log_file={log_filename}")
-
-    def _log(
-        self,
-        category: str,
-        level: int,
-        prefix: str,
-        message: str,
-        data: dict[str, Any] | None = None,
-    ) -> None:
+    def _log(self, category: str, level: int, prefix: str, message: str, data: dict[str, Any] | None = None) -> None:
         extra = {
             "category": category,
             "prefix": prefix,
@@ -182,221 +157,81 @@ class MissionLogger:
         }
         self._root_logger.log(level, message, extra=extra)
 
-    def log_llm_call(
-        self,
-        model: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        total_tokens: int,
-        latency_s: float,
-        response_preview: str = "",
-    ) -> None:
+    def log_llm_call(self, model: str, prompt_tokens: int, completion_tokens: int, total_tokens: int, latency_s: float, response_preview: str = "") -> None:
         self._stats["total_prompt_tokens"] += prompt_tokens
         self._stats["total_completion_tokens"] += completion_tokens
         self._stats["total_tokens"] += total_tokens
         self._stats["total_llm_calls"] += 1
         self._stats["total_llm_latency_s"] += latency_s
 
-        avg_latency = (
-            self._stats["total_llm_latency_s"] / self._stats["total_llm_calls"]
-        )
+        avg_latency = (self._stats["total_llm_latency_s"] / self._stats["total_llm_calls"])
 
         preview = response_preview[:100].replace("\n", " ") if response_preview else ""
 
-        self._log("llm", logging.INFO, "LLM",
-                  f"{model} | tokens={prompt_tokens}+{completion_tokens}={total_tokens} | "
-                  f"latency={latency_s:.2f}s | avg={avg_latency:.2f}s | "
-                  f"session_tokens={self._stats['total_tokens']}",
-                  data={
-                      "model": model,
-                      "prompt_tokens": prompt_tokens,
-                      "completion_tokens": completion_tokens,
-                      "total_tokens": total_tokens,
-                      "latency_s": round(latency_s, 4),
-                      "response_preview": preview,
-                      "session_total_tokens": self._stats["total_tokens"],
-                      "session_llm_calls": self._stats["total_llm_calls"],
-                  })
+        data = {"model": model, "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": total_tokens, "latency_s": round(latency_s, 4), "response_preview": preview, "session_total_tokens": self._stats["total_tokens"], "session_llm_calls": self._stats["total_llm_calls"]}
+        self._log("llm", logging.INFO, "LLM", f"{model} | tokens={prompt_tokens}+{completion_tokens}={total_tokens} | latency={latency_s:.2f}s | avg={avg_latency:.2f}s | session_tokens={self._stats['total_tokens']}", data=data)
 
-    def log_agent_decision(
-        self,
-        frame_id: int,
-        movement: float,
-        rotation: float,
-        latency_s: float,
-        raw_response: str = "",
-    ) -> None:
-        if (
-            frame_id > 3
-            and frame_id % self._log_every_n_frames != 0
-            and abs(rotation) < 0.2
-            and movement > 0.05
-        ):
+    def log_agent_decision(self, frame_id: int, movement: float, rotation: float, latency_s: float, raw_response: str = "", ) -> None:
+        if (frame_id > 3 and frame_id % self._log_every_n_frames != 0 and abs(rotation) < 0.2 and movement > 0.05):
             return
 
         preview = raw_response[:120].replace("\n", " ") if raw_response else ""
 
-        self._log("agent", logging.INFO, "DECISION",
-                  f"frame={frame_id} | mov={movement:.3f} rot={rotation:.3f} | "
-                  f"latency={latency_s:.2f}s",
-                  data={
-                      "frame_id": frame_id,
-                      "movement": round(movement, 4),
-                      "rotation": round(rotation, 4),
-                      "latency_s": round(latency_s, 4),
-                      "raw_response": preview,
-                  })
+        data = {"frame_id": frame_id, "movement": round(movement, 4), "rotation": round(rotation, 4), "latency_s": round(latency_s, 4), "raw_response": preview}
+        self._log("agent", logging.INFO, "DECISION", f"frame={frame_id} | mov={movement:.3f} rot={rotation:.3f} | latency={latency_s:.2f}s", data=data)
 
-    def log_tool_call(
-        self,
-        tool_name: str,
-        args: dict[str, Any] | None = None,
-        result: str = "",
-        latency_s: float = 0.0,
-    ) -> None:
+    def log_tool_call(self, tool_name: str, args: dict[str, Any] | None = None, result: str = "", latency_s: float = 0.0) -> None:
         self._stats["total_tool_calls"] += 1
         self._stats["total_tool_latency_s"] += latency_s
 
         result_preview = str(result)[:100] if result else ""
 
-        self._log("tool", logging.INFO, "TOOL",
-                  f"{tool_name} | latency={latency_s:.3f}s | "
-                  f"result={result_preview}",
-                  data={
-                      "tool_name": tool_name,
-                      "args": args,
-                      "result_preview": result_preview,
-                      "latency_s": round(latency_s, 4),
-                  })
+        data = {"tool_name": tool_name, "args": args, "result_preview": result_preview, "latency_s": round(latency_s, 4)}
+        self._log("tool", logging.INFO, "TOOL", f"{tool_name} | latency={latency_s:.3f}s | result={result_preview}", data=data)
 
-    def log_frame_received(
-        self,
-        frame_id: int,
-        width: int,
-        height: int,
-        pos_x: float = 0.0,
-        pos_y: float = 0.0,
-        pos_z: float = 0.0,
-    ) -> None:
+    def log_frame_received(self, frame_id: int, width: int, height: int, pos_x: float = 0.0, pos_y: float = 0.0, pos_z: float = 0.0) -> None:
         self._stats["frames_processed"] += 1
         if frame_id > 3 and frame_id % self._log_every_n_frames != 0:
             return
 
-        self._log("frame", logging.DEBUG, "FRAME",
-                  f"#{frame_id:04d} | {width}x{height} | "
-                  f"pos=({pos_x:.2f}, {pos_y:.2f}, {pos_z:.2f}) | "
-                  f"total={self._stats['frames_processed']}",
-                  data={
-                      "frame_id": frame_id,
-                      "width": width,
-                      "height": height,
-                      "pos_x": round(pos_x, 4),
-                      "pos_y": round(pos_y, 4),
-                      "pos_z": round(pos_z, 4),
-                  })
+        data={"frame_id": frame_id, "width": width, "height": height, "pos_x": round(pos_x, 4), "pos_y": round(pos_y, 4), "pos_z": round(pos_z, 4)}
+        self._log("frame", logging.DEBUG, "FRAME", f"#{frame_id:04d} | {width}x{height} | " f"pos=({pos_x:.2f}, {pos_y:.2f}, {pos_z:.2f}) | " f"total={self._stats['frames_processed']}", data=data)
 
-    def log_command_sent(
-        self,
-        frame_id: int,
-        vx: float,
-        vy: float,
-        vz: float,
-        yaw: float,
-    ) -> None:
+    def log_command_sent(self, frame_id: int, vx: float, vy: float, vz: float, yaw: float) -> None:
         self._stats["commands_sent"] += 1
-        if (
-            frame_id > 3
-            and frame_id % self._log_every_n_frames != 0
-            and abs(yaw) < 0.15
-            and abs(vz) < 0.01
-        ):
+        if (frame_id > 3 and frame_id % self._log_every_n_frames != 0 and abs(yaw) < 0.15 and abs(vz) < 0.01):
             return
 
-        self._log("agent", logging.INFO, "CMD",
-                  f"frame={frame_id} | vx={vx:.3f} vy={vy:.3f} "
-                  f"vz={vz:.3f} yaw={yaw:.3f}",
-                  data={
-                      "frame_id": frame_id,
-                      "vx": round(vx, 4),
-                      "vy": round(vy, 4),
-                      "vz": round(vz, 4),
-                      "yaw": round(yaw, 4),
-                  })
+        data = {"frame_id": frame_id, "vx": round(vx, 4), "vy": round(vy, 4), "vz": round(vz, 4), "yaw": round(yaw, 4)}
+        self._log("agent", logging.INFO, "CMD", f"frame={frame_id} | vx={vx:.3f} vy={vy:.3f} vz={vz:.3f} yaw={yaw:.3f}", data=data)
 
-    def log_memory_update(
-        self,
-        summary_length: int,
-        events_summarized: int,
-        latency_s: float = 0.0,
-    ) -> None:
+    def log_memory_update(self, summary_length: int, events_summarized: int, latency_s: float = 0.0) -> None:
         self._stats["memory_updates"] += 1
 
-        self._log("memory", logging.INFO, "MEM",
-                  f"Summary updated | length={summary_length} chars | "
-                  f"events_summarized={events_summarized} | "
-                  f"latency={latency_s:.2f}s",
-                  data={
-                      "summary_length": summary_length,
-                      "events_summarized": events_summarized,
-                      "latency_s": round(latency_s, 4),
-                  })
+        data = {"summary_length": summary_length, "events_summarized": events_summarized, "latency_s": round(latency_s, 4)}
+        self._log("memory", logging.INFO, "MEM", f"Summary updated | length={summary_length} chars | events_summarized={events_summarized} | latency={latency_s:.2f}s", data=data)
 
-    def log_connection_event(
-        self,
-        event_type: str,
-        details: dict[str, Any] | None = None,
-    ) -> None:
+    def log_connection_event(self, event_type: str, details: dict[str, Any] | None = None) -> None:
         level = logging.WARNING if "error" in event_type.lower() or "lost" in event_type.lower() else logging.INFO
 
-        self._log("system", level, "CONN",
-                  f"{event_type} | {details or ''}",
-                  data={
-                      "event_type": event_type,
-                      "details": details,
-                  })
+        data = {"event_type": event_type, "details": details}
+        self._log("system", level, "CONN", f"{event_type} | {details or ''}", data=data)
 
-    def log_system(
-        self,
-        message: str,
-        level: int = logging.INFO,
-        data: dict[str, Any] | None = None,
-    ) -> None:
+    def log_system(self, message: str, level: int = logging.INFO, data: dict[str, Any] | None = None) -> None:
         self._log("system", level, "SYS", message, data=data)
 
-    def log_error(
-        self,
-        component: str,
-        error: Exception | str,
-        traceback_str: str = "",
-    ) -> None:
+    def log_error(self, component: str, error: Exception | str, traceback_str: str = "") -> None:
         self._stats["errors"] += 1
         error_msg = str(error)[:300]
 
-        self._log("error", logging.ERROR, component.upper(),
-                  f"{error_msg}",
-                  data={
-                      "component": component,
-                      "error": error_msg,
-                      "traceback": traceback_str[:500] if traceback_str else "",
-                  })
+        data = {"component": component, "error": error_msg, "traceback": traceback_str[:500] if traceback_str else ""}
+        self._log("error", logging.ERROR, component.upper(), f"{error_msg}", data=data)
 
     def get_session_stats(self) -> dict[str, Any]:
         elapsed = time.monotonic() - self.session_start_mono
         stats = dict(self._stats)
-        stats.update({
-            "session_id": self.session_id,
-            "session_start": self.session_start.isoformat(),
-            "session_elapsed_s": round(elapsed, 2),
-            "avg_llm_latency_s": round(
-                stats["total_llm_latency_s"] / max(1, stats["total_llm_calls"]), 3
-            ),
-            "avg_tool_latency_s": round(
-                stats["total_tool_latency_s"] / max(1, stats["total_tool_calls"]), 3
-            ),
-            "tokens_per_minute": round(
-                stats["total_tokens"] / max(1, elapsed / 60), 1
-            ),
-        })
+        update = {"session_id": self.session_id, "session_start": self.session_start.isoformat(), "session_elapsed_s": round(elapsed, 2), "avg_llm_latency_s": round(stats["total_llm_latency_s"] / max(1, stats["total_llm_calls"]), 3), "avg_tool_latency_s": round(stats["total_tool_latency_s"] / max(1, stats["total_tool_calls"]), 3), "tokens_per_minute": round(stats["total_tokens"] / max(1, elapsed / 60), 1)}
+        stats.update(update)
         return stats
 
     def log_session_summary(self) -> None:
@@ -433,9 +268,7 @@ class MissionLogger:
         for line in summary_lines:
             self._log("stats", logging.INFO, "STATS", line)
 
-        self._log("stats", logging.INFO, "STATS",
-                  "Session stats snapshot",
-                  data=stats)
+        self._log("stats", logging.INFO, "STATS", "Session stats snapshot", data=stats)
 
 
 def get_logger(name: str = "vlm_client") -> logging.Logger:
@@ -449,8 +282,6 @@ def extract_token_usage(response) -> dict[str, int]:
         "total_tokens": 0,
     }
 
-    # LangChain >=0.3 usa input_tokens/output_tokens; LMStudio nativo usa
-    # prompt_tokens/completion_tokens — soportamos ambos en el mismo dict.
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         um = response.usage_metadata
         if isinstance(um, dict):

@@ -54,10 +54,18 @@ VLM_Client/
 
 ### 1. Crear entorno virtual
 
+> **Recomendado: Python 3.12.** Python 3.14 causa incompatibilidades con la capa `pydantic.v1` que usa LangChain internamente.
+
 ```bash
 cd TFG
-python -m venv venv
-source venv/bin/activate
+python3.12 -m venv venv312
+source venv312/bin/activate
+```
+
+Si solo tienes Python 3.14 disponible, el sistema puede funcionar pero aparecerá un `UserWarning` de Pydantic; en ese caso añade al inicio de `vlm_client.py`:
+```python
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
 ```
 
 ### 2. Instalar dependencias
@@ -106,16 +114,24 @@ Abre el mundo del Crazyflie en Webots. El controlador `crazyflie.c` debe estar e
 
 ### 2. Iniciar el cliente VLM
 
+#### Misión estándar (X=27, helipad verde — mundo `test3.wbt`)
 ```bash
 cd TFG/VLM_Client
 python vlm_client.py
 ```
 
+#### Misión semántica: buscar el barril ROJO (mundo `test2.wbt`)
+El barril rojo está en (X=4, Y=2). Lanza con las variables de entorno de target y el prompt específico:
+```bash
+cd TFG/VLM_Client
+DRONE_TARGET_X=4 DRONE_TARGET_Y=2 python vlm_client.py --prompt prompts/seek_red.md
+```
+
 El sistema:
 1. Inicializa los LLMs, MissionState, HybridMemory y las herramientas.
 2. Conecta a Webots por socket (reintenta automáticamente).
-3. Recibe frames de la cámara del dron.
-4. Invoca al agente LangChain para decidir movimientos.
+3. Recibe frames de la cámara del dron, los anota con HUD (X-progress, Y-drift, obstacle score).
+4. Invoca al LLM/agente para decidir movimientos.
 5. Envía comandos `vx vy vz yaw` al dron.
 
 ### Modos de operación

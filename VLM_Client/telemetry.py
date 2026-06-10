@@ -1,24 +1,14 @@
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
+from opentelemetry.sdk.trace.export import (BatchSpanProcessor, ConsoleSpanExporter)
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    PeriodicExportingMetricReader,
-    ConsoleMetricExporter,
-)
+from opentelemetry.sdk.metrics.export import (PeriodicExportingMetricReader, ConsoleMetricExporter)
 from opentelemetry.sdk.resources import Resource
 
 _initialized = False
 
 
-def init_telemetry(
-    service_name: str = "vlm_client",
-    enable_console: bool = False,
-    metric_export_interval_ms: int = 30_000,
-) -> None:
+def init_telemetry(service_name: str = "vlm_client", enable_console: bool = False, metric_export_interval_ms: int = 30_000) -> None:
     global _initialized
     if _initialized:
         return
@@ -27,24 +17,19 @@ def init_telemetry(
 
     tracer_provider = TracerProvider(resource=resource)
     if enable_console:
-        tracer_provider.add_span_processor(
-            BatchSpanProcessor(ConsoleSpanExporter())
-        )
+        tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
     trace.set_tracer_provider(tracer_provider)
 
     readers = []
     if enable_console:
-        readers.append(
-            PeriodicExportingMetricReader(
-                ConsoleMetricExporter(),
-                export_interval_millis=metric_export_interval_ms,
-            )
-        )
+        readers.append(PeriodicExportingMetricReader(ConsoleMetricExporter(), export_interval_millis=metric_export_interval_ms))
+
     meter_provider = MeterProvider(resource=resource, metric_readers=readers)
     metrics.set_meter_provider(meter_provider)
 
     _initialized = True
-    print(f"[OTEL] Telemetry initialized (service={service_name})")
+    print(f"[OTEL] Telemetría iniciada (servicio={service_name})")
 
 
 def get_tracer(name: str = "vlm_client") -> trace.Tracer:

@@ -1,37 +1,27 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-
 from mission_state import MissionState
 from telemetry import get_tracer
 from advanced_logger import MissionLogger, get_logger, extract_token_usage
 
 
-DEFAULT_SUMMARY_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "mission_summary.json"
-)
+DEFAULT_SUMMARY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mission_summary.json")
 
 
 class HybridMemory:
-    def __init__(
-        self,
-        mission_state: MissionState,
-        summary_path: str = DEFAULT_SUMMARY_PATH,
-        recent_events_count: int = 20,
-    ):
+    def __init__(self, mission_state: MissionState, summary_path: str = DEFAULT_SUMMARY_PATH, recent_events_count: int = 20):
         self.mission_state = mission_state
         self.summary_path = summary_path
         self.recent_events_count = recent_events_count
-
         self.strategic_summary: str = ""
         self.last_summary_update: str | None = None
         self.events_summarized_count: int = 0
-
         self.load_summary()
 
     def load_summary(self) -> bool:
@@ -41,10 +31,12 @@ class HybridMemory:
         try:
             with open(self.summary_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
             self.strategic_summary = data.get("summary", "")
             self.last_summary_update = data.get("last_update", None)
             self.events_summarized_count = data.get("events_summarized", 0)
             return True
+        
         except (json.JSONDecodeError, IOError) as e:
             get_logger("hybrid_memory").warning(f"No se pudo cargar el resumen: {e}")
             return False
@@ -86,7 +78,6 @@ class HybridMemory:
         ]
 
         try:
-            import time
             t_start = time.time()
             with get_tracer("hybrid_memory").start_as_current_span("update_summary") as span:
                 response = llm.invoke(messages)
@@ -100,14 +91,7 @@ class HybridMemory:
 
                 tokens = extract_token_usage(response)
                 model_name = getattr(llm, "model_name", "summary_llm")
-                MissionLogger().log_llm_call(
-                    model=model_name,
-                    prompt_tokens=tokens.get("prompt_tokens", 0),
-                    completion_tokens=tokens.get("completion_tokens", 0),
-                    total_tokens=tokens.get("total_tokens", 0),
-                    latency_s=latency,
-                    response_preview=self.strategic_summary
-                )
+                MissionLogger().log_llm_call(model=model_name, prompt_tokens=tokens.get("prompt_tokens", 0), completion_tokens=tokens.get("completion_tokens", 0), total_tokens=tokens.get("total_tokens", 0), latency_s=latency, response_preview=self.strategic_summary)
 
                 self.save_summary()
                 return self.strategic_summary
@@ -127,9 +111,7 @@ class HybridMemory:
             "strategic_summary": self.strategic_summary or "(Sin resumen disponible)",
             "last_summary_update": self.last_summary_update,
             "current_position": self.mission_state.position,
-            "recent_events": self.mission_state.get_recent_events(
-                self.recent_events_count
-            ),
+            "recent_events": self.mission_state.get_recent_events(self.recent_events_count),
             "mission_info": {
                 "name": self.mission_state.mission_name,
                 "total_events": self.mission_state.total_events,
@@ -174,44 +156,30 @@ if __name__ == "__main__":
     from telemetry import init_telemetry
     init_telemetry("test_hybrid_memory", enable_console=False)
 
-    print("=" * 50)
-    print("Test de HybridMemory (sin LLM)")
-    print("=" * 50)
-
     state = MissionState("test_hybrid_memory")
-    state.log_event("drone", "takeoff", {"altitude": 1.0})
-    state.log_event("vlm", "frame_received", {"frame_id": 1})
-    state.log_event("agent", "decision_made", {"movement": 0.5, "rotation": 0.1})
-    state.log_event("drone", "command_sent", {"vx": 0.25, "yaw": 0.08})
-    state.log_event("vlm", "frame_received", {"frame_id": 2})
-
+    for actor, action, data in [
+        ("drone", "takeoff",        {"altitude": 1.0}),
+        ("vlm",   "frame_received", {"frame_id": 1}),
+        ("agent", "decision_made",  {"movement": 0.5, "rotation": 0.1}),
+        ("drone", "command_sent",   {"vx": 0.25, "yaw": 0.08}),
+        ("vlm",   "frame_received", {"frame_id": 2}),
+    ]:
+        state.log_event(actor, action, data)
+        
     state.update_position(1.5, -2.3)
 
     test_path = "/tmp/test_mission_summary.json"
     memory = HybridMemory(state, summary_path=test_path, recent_events_count=10)
-    print(f"\n[1] Memoria creada: {memory}")
     memory.update_summary_manual(
         "El dron ha despegado a 1m de altitud y ha comenzado a recibir "
         "frames del simulador. Se han tomado 2 decisiones de navegación."
     )
-    print(f"\n[2] Resumen actualizado: {memory.strategic_summary[:80]}...")
 
-    ctx = memory.get_context()
-    print(f"\n[3] Contexto combinado:")
-    print(f"    Resumen: {ctx['strategic_summary'][:60]}...")
-    print(f"    Posición: {ctx['current_position']}")
-    print(f"    Eventos recientes: {len(ctx['recent_events'])}")
-    print(f"    Misión: {ctx['mission_info']['name']}")
-
-    print(f"\n[4] Contexto como texto:")
     print(memory.get_context_text())
 
     memory2 = HybridMemory(state, summary_path=test_path)
     assert memory2.strategic_summary == memory.strategic_summary
-    print(f"[5] Persistencia verificada: resumen cargado desde disco OK")
-
-    print(f"\n[6] ¿Actualizar resumen? (every_n=3): {memory.should_update_summary(3)}")
-    print(f"    ¿Actualizar resumen? (every_n=50): {memory.should_update_summary(50)}")
+    assert memory.should_update_summary(3)
+    assert not memory.should_update_summary(50)
 
     os.remove(test_path)
-    print("\n[OK] Todos los tests pasaron correctamente.")

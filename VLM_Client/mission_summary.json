@@ -1,6 +1,6 @@
 {
   "mission_name": "drone_landing_mission_x27",
-  "summary": "",
-  "last_update": "2026-05-13T14:13:22.316050+00:00",
-  "events_summarized": 0
+  "summary": "STRATEGIC SUMMARY:\n- The mission continues with consistent data from the drone mission assistant, indicating a steady flow of information.\n- The \"vlm_direct\" actor has made decisions and applied guardrails in several frames, suggesting an ongoing assessment or planning phase.\n- The drone continues to send commands, albeit with minor variations in speed and direction.\n- There is no significant deviation from the mission's objectives as of the latest update.\n- The \"llm_guarded\" reason persists across multiple frames, indicating a persistent threat or obstacle that requires attention.\n- Latency times are relatively low, suggesting efficient communication and response between actors.\n- Overall mission status remains stable with no major anomalies or issues detected.\n\nRECENT EVENTS:\n- The \"vlm_direct\" actor has made decisions and applied guardrails in several frames, indicating an ongoing assessment or planning phase.\n- The drone continues to send commands, albeit with minor variations in speed and direction.\n- There is no significant deviation from the mission's objectives as of the latest update.\n- The \"llm_guarded\" reason persists across multiple frames, indicating a persistent threat or obstacle that requires attention.\n- Latency times are relatively low, suggesting efficient communication and response between actors.\n- Overall mission status remains stable with no major anomalies or issues detected.",
+  "last_update": "2026-06-10T14:32:16.943056+00:00",
+  "events_summarized": 188
 }

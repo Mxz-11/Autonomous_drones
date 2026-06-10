@@ -1,20 +1,9 @@
 /*
- * ╔══════════════════════════════════════════════════════════════╗
- * ║                                                              ║
- * ║   ██████╗ ██████╗  ██████╗ ███╗   ██╗███████╗                ║
- * ║   ██╔══██╗██╔══██╗██╔═══██╗████╗  ██║██╔════╝                ║
- * ║   ██║  ██║██████╔╝██║   ██║██╔██╗ ██║█████╗                  ║
- * ║   ██║  ██║██╔══██╗██║   ██║██║╚██╗██║██╔══╝                  ║
- * ║   ██████╔╝██║  ██║╚██████╔╝██║ ╚████║███████╗                ║
- * ║   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝                ║
- * ║                                                              ║
- * ║          C O N T R O L L E R  -  crazyflie.c                 ║
- * ║                                                              ║
- * ║   Platform  : Webots Simulation + Crazyflie Quadcopter       ║
- * ║   Interface : TCP Socket (port 9002)  │  Camera (pull)       ║
- * ║   Control   : PID velocity + fixed height stabilization      ║
- * ║   Author    : Mxz-11 (Maximo Valenciano Alvarez)             ║
- * ╚══════════════════════════════════════════════════════════════╝
+ * Author    : Mxz-11 (Maximo Valenciano Alvarez)
+ * File      : crazyflie.c
+ * Created   : 2024-06-15
+ * Webots controller for a Crazyflie drone, with TCP communication to a Python client.
+ *
  */
 
 #include <math.h>
@@ -48,6 +37,7 @@
 #include <webots/gyro.h>
 #include <webots/inertial_unit.h>
 #include <webots/camera.h>
+#include <webots/distance_sensor.h>
 
 #include "pid_controller.h"
 
@@ -69,7 +59,7 @@ static void init_tcp() {
   #endif
   server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-  /* Permitir reconexión rápida sin esperar TIME_WAIT */
+  /* Permitir reconexión sin esperar TIME_WAIT */
   int opt = 1;
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -105,17 +95,6 @@ static void handle_tcp() {
   if (client_fd < 0) {
     client_fd = accept(server_fd, NULL, NULL);
     if (client_fd >= 0) {
-      /*
-       * NO poner O_NONBLOCK en el client socket:
-       *  - recv() ya usa MSG_DONTWAIT para lecturas no bloqueantes
-       *  - send() NECESITA ser bloqueante para enviar frames grandes
-       *    completos sin fallar con EAGAIN cuando el buffer del kernel
-       *    se llena (un frame RGBA puede ser >100KB).
-       * Antes esto causaba que send() devolviera -1/EAGAIN, el
-       * controlador cerraba el socket, y el cliente veía timeout.
-       */
-
-      /* Desactivar Nagle para reducir latencia de envío de frames */
       int nodelay = 1;
       setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
 
@@ -133,7 +112,6 @@ static void handle_tcp() {
   #endif
   if (n > 0) {
     buf[n] = '\0';
-    /* Parse all lines in the buffer (may contain multiple messages) */
     char *line = strtok(buf, "\n");
     while (line != NULL) {
       if (strncmp(line, "FRAME", 5) == 0) {
@@ -144,13 +122,11 @@ static void handle_tcp() {
       line = strtok(NULL, "\n");
     }
   } else if (n == 0) {
-    /* Client disconnected cleanly */
     close(client_fd);
     client_fd = -1;
     frame_requested = 0;
     printf("[TCP] Client disconnected\n");
   } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-    /* Error real de socket (no es simplemente "sin datos") */
     printf("[TCP] recv error: %s\n", strerror(errno));
     close(client_fd);
     client_fd = -1;
@@ -172,7 +148,7 @@ int main() {
   wb_robot_init();
   int timestep = wb_robot_get_basic_time_step();
 
-  /* MOTORS */
+  /* MOTORES */
   WbDeviceTag m1 = wb_robot_get_device("m1_motor");
   WbDeviceTag m2 = wb_robot_get_device("m2_motor");
   WbDeviceTag m3 = wb_robot_get_device("m3_motor");
@@ -183,7 +159,7 @@ int main() {
   wb_motor_set_position(m3, INFINITY);
   wb_motor_set_position(m4, INFINITY);
 
-  /* SENSORS */
+  /* SENSORES */
   WbDeviceTag imu = wb_robot_get_device("inertial_unit");
   WbDeviceTag gps = wb_robot_get_device("gps");
   WbDeviceTag gyro = wb_robot_get_device("gyro");
@@ -192,13 +168,25 @@ int main() {
   wb_gps_enable(gps, timestep);
   wb_gyro_enable(gyro, timestep);
 
-  /* CAMERA */
+  /* CAMARA FRONTAL */
   WbDeviceTag camera = wb_robot_get_device("vlm_camera");
   wb_camera_enable(camera, timestep);
 
   int cam_w = wb_camera_get_width(camera);
   int cam_h = wb_camera_get_height(camera);
   printf("[CAM] %dx%d\n", cam_w, cam_h);
+
+  /* SENSOR DE DISTANCIA */
+  WbDeviceTag dist_front = wb_robot_get_device("dist_front");
+  wb_distance_sensor_enable(dist_front, timestep);
+
+  /* CAMARA ABAJO */
+  WbDeviceTag down_camera = wb_robot_get_device("down_camera");
+  wb_camera_enable(down_camera, timestep);
+
+  int down_w = wb_camera_get_width(down_camera);
+  int down_h = wb_camera_get_height(down_camera);
+  printf("[DOWN_CAM] %dx%d\n", down_w, down_h);
 
   /* PID */
   actual_state_t actual_state = {0};
@@ -271,42 +259,64 @@ int main() {
    wb_motor_set_velocity(m4, clamp( motor_power.m4, -MAX_MOTOR_VEL, MAX_MOTOR_VEL));
 
 
-    /* SEND CAMERA — Solo cuando el cliente lo pide (pull-based) */
+    /* Enviar info sensores */
     if (client_fd >= 0 && frame_requested) {
       frame_requested = 0;
       const unsigned char *img = wb_camera_get_image(camera);
       int header[2] = { cam_w, cam_h };
 
+      /* Header de la camara frontal */
       ssize_t n1 = send(client_fd, header, sizeof(header), 0);
-      if (n1 > 0) {
-        /* Enviar imagen completa (blocking send) */
-        size_t total = cam_w * cam_h * 4;
-        size_t sent = 0;
-        while (sent < total) {
-          ssize_t n2 = send(client_fd, img + sent, total - sent, 0);
-          if (n2 <= 0) {
-            close(client_fd);
-            client_fd = -1;
-            printf("[TCP] Client disconnected (send error)\n");
-            break;
-          }
-          sent += n2;
-        }
-        /* Send GPS X/Y/Z position after frame (12 bytes: 3 floats) */
-        if (client_fd >= 0) {
-          float pos[3] = { gps_x, gps_y, gps_z };
-          ssize_t np = send(client_fd, pos, sizeof(pos), 0);
-          if (np <= 0) {
-            close(client_fd);
-            client_fd = -1;
-            printf("[TCP] Client disconnected (pos send error)\n");
-          }
-        }
-      } else {
-        close(client_fd);
-        client_fd = -1;
-        printf("[TCP] Client disconnected (header send error)\n");
+      if (n1 <= 0) {
+        close(client_fd); client_fd = -1;
+        printf("[TCP] Client disconnected (front header)\n");
+        continue;
       }
+
+      /* Número de pixeles de la camara frontal */
+      size_t total = cam_w * cam_h * 4;
+      size_t sent = 0;
+      while (sent < total && client_fd >= 0) {
+        ssize_t n2 = send(client_fd, img + sent, total - sent, 0);
+        if (n2 <= 0) { close(client_fd); client_fd = -1; break; }
+        sent += n2;
+      }
+      if (client_fd < 0) { printf("[TCP] Client disconnected (front pixels)\n"); continue; }
+
+      /* GPS X/Y/Z */
+      float pos[3] = { gps_x, gps_y, gps_z };
+      if (send(client_fd, pos, sizeof(pos), 0) <= 0) {
+        close(client_fd); client_fd = -1;
+        printf("[TCP] Client disconnected (gps)\n");
+        continue;
+      }
+
+      /* Sensor de distancia */
+      float dist_m = (float)wb_distance_sensor_get_value(dist_front);
+      if (send(client_fd, &dist_m, sizeof(dist_m), 0) <= 0) {
+        close(client_fd); client_fd = -1;
+        printf("[TCP] Client disconnected (dist)\n");
+        continue;
+      }
+
+      /* Header de la camara hacia abajo */
+      int down_header[2] = { down_w, down_h };
+      if (send(client_fd, down_header, sizeof(down_header), 0) <= 0) {
+        close(client_fd); client_fd = -1;
+        printf("[TCP] Client disconnected (down header)\n");
+        continue;
+      }
+
+      /* Número de pixeles de la camara hacia abajo */
+      const unsigned char *down_img = wb_camera_get_image(down_camera);
+      size_t down_total = down_w * down_h * 4;
+      size_t down_sent = 0;
+      while (down_sent < down_total && client_fd >= 0) {
+        ssize_t n3 = send(client_fd, down_img + down_sent, down_total - down_sent, 0);
+        if (n3 <= 0) { close(client_fd); client_fd = -1; break; }
+        down_sent += n3;
+      }
+      if (client_fd < 0) { printf("[TCP] Client disconnected (down pixels)\n"); }
     }
   }
 
