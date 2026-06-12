@@ -16,7 +16,8 @@ from mission_config import (
     OBSTACLE_AVOIDANCE_ENABLED, OBSTACLE_CENTER_THRESHOLD,
     OBSTACLE_ALT_CRUISE_Z, OBSTACLE_ALT_MAX_Z,
     OBSTACLE_STRONG_SCORE,
-    TARGET_X, TARGET_Y, TARGET_X_SLOWDOWN_RADIUS,
+    TARGET_X, TARGET_Y, TARGET_X_SLOWDOWN_RADIUS, STALE_TARGET_ENV,
+    effective_target_y,
     DIST_SENSOR_ENABLED, DOWN_CAM_ENABLED,
 )
 from llm_config import ( LMSTUDIO_OPENAI_BASE, get_decision_llm, get_summary_llm, probe_openai_compatible_server)
@@ -128,6 +129,15 @@ def main():
     if SPEED_DIVISOR > 1.0:
         print(f"[SLOW-MO] Velocidad ÷{SPEED_DIVISOR:.1f}")
 
+    if TARGET_X is not None or TARGET_Y is not None:
+        print(f"[TARGET] --target activo: X={TARGET_X} Y={TARGET_Y} (guardrail GPS + hint Y-drift)")
+        ml.log_system("Targets GPS activos via --target", data={"target_x": TARGET_X, "target_y": TARGET_Y})
+
+    if STALE_TARGET_ENV:
+        print(f"[WARN]  Variables DRONE_TARGET_* detectadas en el entorno y serán IGNORADAS: {STALE_TARGET_ENV}")
+        print(f"[WARN]  Los targets ahora se pasan por CLI: --target X,Y")
+        ml.log_system("Env DRONE_TARGET_* ignorado", data=STALE_TARGET_ENV)
+
     print(f"[PROMPT-LOG] {_PROMPT_LOG_DIR}\n")
 
     while True:
@@ -180,7 +190,7 @@ def main():
                 else "approach" if pos_x >= TARGET_X - TARGET_X_SLOWDOWN_RADIUS
                 else "cruise"
             )
-            annotated_frame = annotate_frame(frame_rgb, pos_x, pos_y, pos_z, obstacle_score=_obs_score, obstacle_blocked=_obs_blocked, phase=_ann_phase, target_x=TARGET_X, target_y=TARGET_Y, dist_m=dist_m if DIST_SENSOR_ENABLED else None)
+            annotated_frame = annotate_frame(frame_rgb, pos_x, pos_y, pos_z, obstacle_score=_obs_score, obstacle_blocked=_obs_blocked, phase=_ann_phase, target_x=TARGET_X, target_y=effective_target_y(pos_x), dist_m=dist_m if DIST_SENSOR_ENABLED else None)
 
             down_b64: str | None = None
             if DOWN_CAM_ENABLED:
@@ -261,9 +271,10 @@ def main():
                         span.set_attribute("obstacle.score", round(obstacle_score, 4))
 
                     else:
+                        """
                         _cruise_phases = ("gps_landing", "arrived", "gps_arrived", "landing_guardrail")
                         if phase not in _cruise_phases and POSITION_PACKET_FLOATS == 3 and pos_z > OBSTACLE_ALT_CRUISE_Z:
-                            vz = min(vz, -0.06)
+                            vz = min(vz, -0.06)"""
 
                         span.set_attribute("obstacle.blocked", False)
 

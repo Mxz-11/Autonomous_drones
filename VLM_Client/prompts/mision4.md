@@ -18,7 +18,8 @@ No obstacles between start and the arch.
 
 ## Mission
 Approach the red arch head-on and fly through the opening, between the two posts and under the top bar.
-Success = crossing X=4.5 with Y between -0.5 and +0.5, altitude below 0.85 m.
+Crossing the arch (X=4.5, Y between -0.5 and +0.5, altitude below 0.85 m) is NOT the end:
+after clearing it, keep flying forward to the goal point beyond the arch. The autopilot stops you on arrival.
 
 ## Reading the GPS Input
 The frame header tells you:
@@ -40,7 +41,7 @@ The frame header tells you:
 | Approach | X below 2 | 0.5-0.6 | gentle drift correction (+/-0.10) |
 | Final alignment | X between 2 and 3.5 | 0.4 | +/-0.08 max, post centring only |
 | Crossing | X between 3.5 and 4.5 | 0.4-0.5 | 0.0, straight through |
-| Through | X past 4.5 | 0.0 | 0.0 |
+| To goal | X past 4.5 | 0.4 | gentle drift correction toward Y=0 (+/-0.10) |
 
 **Phase 1: Approach (X below 2)**
 Arch is not yet visible or very small in the distance.
@@ -62,9 +63,11 @@ Arch is directly ahead. Commit: fly straight through.
 - If a post fills one side of the image completely: one small correction only (+/-0.10), then back to 0.0
 - Do not stop or hesitate, stopping here causes drift and risks a post collision
 
-**Phase 4: Through (X past 4.5)**
-Arch is behind you. Mission complete.
-- movement = 0.0, rotation = 0.0, stop and hold
+**Phase 4: To goal (X past 4.5)**
+Arch is cleared. Do NOT stop here: keep flying forward toward the goal point.
+- movement = 0.4 (steady), keep going until the autopilot halts you on arrival
+- Y-drift RIGHT Xm -> rotation = +0.10; Y-drift LEFT Xm -> rotation = -0.10; centered -> rotation = 0.0
+- Only output movement = 0.0 if the GPS X stops increasing (you have already arrived and the controller is holding you)
 
 ## Visual Recognition (Front Camera)
 - **Correct approach**: two symmetric red vertical posts framing the image centre, gap clearly visible between them, fly into the gap

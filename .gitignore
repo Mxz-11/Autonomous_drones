@@ -18,10 +18,6 @@ venv/
 *.onnx
 *.bin
 
-# logs
-*.log
-VLM_Client/logs/*
-
 # OS
 .DS_Store
 Thumbs.db
@@ -40,5 +36,3 @@ datasets/
 # build
 dist/
 build/
-
-VLM_Client/analisis_modelos.md

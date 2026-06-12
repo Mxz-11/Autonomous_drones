@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import os
+import sys
 
 WEBOTS_IP = "127.0.0.1"
 WEBOTS_PORT = 9002
 SOCKET_TIMEOUT_S = 10.0
-MAX_FORWARD = 0.14
-MAX_YAW = 0.18
+MAX_FORWARD = 0.25
+MAX_YAW = 0.3
 MAX_DESCEND = -0.18
 MAX_ASCEND = 0.22
-
 
 try:
     SPEED_DIVISOR = max(1.0, float(os.environ.get("VLM_SPEED_DIVISOR", "2.0")))
@@ -21,17 +21,51 @@ CONTROL_RATE_HZ = 2.0
 CONTROL_PERIOD_S = 1.0 / CONTROL_RATE_HZ
 SYNC_LLM_MODE = os.environ.get("VLM_ASYNC_MODE", "0").strip().lower() not in ("1", "true", "yes", "on")
 
-try:
-    _tx = os.environ.get("DRONE_TARGET_X")
-    _ty = os.environ.get("DRONE_TARGET_Y")
-    TARGET_X: float | None = float(_tx) if _tx is not None else None
-    TARGET_Y: float | None = float(_ty) if _ty is not None else None
+def _parse_xy_arg(flag: str, argv: list[str] | None = None) -> tuple[float | None, float | None]:
+    args = argv if argv is not None else sys.argv[1:]
+    val = None
+    for i, arg in enumerate(args):
+        if arg == flag and i + 1 < len(args):
+            val = args[i + 1]
+            break
 
-except ValueError:
-    TARGET_X, TARGET_Y = None, None
+        if arg.startswith(flag + "="):
+            val = arg.split("=", 1)[1]
+            break
+
+    if not val:
+        return None, None
+
+    try:
+        x_s, y_s = val.split(",")
+        return float(x_s), float(y_s)
+
+    except ValueError:
+        return None, None
+
+
+def _parse_target_arg(argv: list[str] | None = None) -> tuple[float | None, float | None]:
+    return _parse_xy_arg("--target", argv)
+
+
+TARGET_X, TARGET_Y = _parse_target_arg()
+STALE_TARGET_ENV = {k: v for k, v in os.environ.items() if k.startswith("DRONE_TARGET_")}
 
 TARGET_X_SLOWDOWN_RADIUS = (min(3.0, max(1.0, TARGET_X * 0.35)) if TARGET_X is not None else 3.0)
 TARGET_X_REACHED_TOL = 0.35
+WAYPOINT_CLEAR_X, WAYPOINT_CORRIDOR_Y = _parse_xy_arg("--waypoint")
+
+
+def phase_target_y(pos_x, target_y, clear_x, corridor_y):
+    if (clear_x is not None and corridor_y is not None
+            and pos_x is not None and pos_x < clear_x):
+        return corridor_y
+
+    return target_y
+
+
+def effective_target_y(pos_x: float | None) -> float | None:
+    return phase_target_y(pos_x, TARGET_Y, WAYPOINT_CLEAR_X, WAYPOINT_CORRIDOR_Y)
 ROT_CORRECTION_THRESHOLD_Y = 0.8
 HIGH_Y_ERROR_THRESHOLD = 2.0
 DECISION_MAX_LATENCY_S = 60.0

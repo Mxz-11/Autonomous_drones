@@ -4,7 +4,8 @@ import re
 import numpy as np
 
 from mission_config import (
-    TARGET_X, TARGET_Y,
+    TARGET_X, TARGET_Y, phase_target_y,
+    WAYPOINT_CLEAR_X, WAYPOINT_CORRIDOR_Y,
     TARGET_X_SLOWDOWN_RADIUS, TARGET_X_REACHED_TOL,
     ROT_CORRECTION_THRESHOLD_Y, HIGH_Y_ERROR_THRESHOLD,
     DECISION_MAX_LATENCY_S, ARRIVAL_RADIUS,
@@ -19,8 +20,12 @@ from mission_config import (
     ARRIVAL_HOVER,
 )
 
-
 _FLOAT_RE = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
+
+
+def _target_y(pos_x):
+    """Objetivo lateral efectivo según la fase (corredor antes del waypoint)."""
+    return phase_target_y(pos_x, TARGET_Y, WAYPOINT_CLEAR_X, WAYPOINT_CORRIDOR_Y)
 
 
 def parse_movement(answer: str) -> tuple[float, float]:
@@ -42,7 +47,7 @@ def compute_rule_based_control(pos_x: float, pos_y: float) -> tuple[float, float
         if ARRIVAL_HOVER:
             return 0.0, 0.0, 0.0, "arrived"
         
-        landing_rotation = max(-0.3, min(0.3, -0.15 * (pos_y - TARGET_Y)))
+        landing_rotation = max(-0.3, min(0.3, -0.15 * (pos_y - _target_y(pos_x))))
         return 0.0, landing_rotation, MAX_DESCEND, "landing"
 
     if dx <= TARGET_X_SLOWDOWN_RADIUS:
@@ -52,7 +57,7 @@ def compute_rule_based_control(pos_x: float, pos_y: float) -> tuple[float, float
     else:
         movement = 0.8
 
-    y_error = pos_y - TARGET_Y
+    y_error = pos_y - _target_y(pos_x)
     rotation = 0.0 if abs(y_error) <= 0.35 else max(-0.65, min(0.65, -0.12 * y_error))
 
     return movement, rotation, 0.0, "cruise"
@@ -105,8 +110,8 @@ def compute_gps_guided_control(mission_state) -> tuple[float, float, float, str]
         return 0.5, 0.0, 0.0, "fwd_search"
 
     dx = TARGET_X - x
-    dy = TARGET_Y - y
-    dist = math.hypot(dx, dy)
+    dy = _target_y(x) - y
+    dist = math.hypot(TARGET_X - x, TARGET_Y - y)
 
     if dist <= ARRIVAL_RADIUS:
         _last_rotation = 0.0
@@ -168,7 +173,7 @@ def compute_gps_guided_control(mission_state) -> tuple[float, float, float, str]
 
     vz = 0.0
     if POSITION_PACKET_FLOATS == 3:
-        cruise_z = getattr(compute_gps_guided_control, "_cruise_z", 0.55)
+        cruise_z = getattr(compute_gps_guided_control, "_cruise_z", OBSTACLE_ALT_CRUISE_Z)
         if z < cruise_z - 0.15 and phase != "gps_landing":
             vz = min(MAX_ASCEND, 0.08 + (cruise_z - z) * 0.20)
 
@@ -248,7 +253,7 @@ def estimate_obstacle_avoidance(frame_rgb: np.ndarray, dist_m: float | None = No
     else:
         severity = min(1.0, max(0.0, (center_score - OBSTACLE_CENTER_THRESHOLD) / 0.35))
 
-    turn_sign = -1.0 if left_score < right_score else 1.0
+    turn_sign = 1.0 if left_score < right_score else -1.0
     avoid_rotation = turn_sign * min(0.95, 0.30 + 0.55 * severity)
     speed_scale = max(0.20, 1.0 - 0.70 * severity)
 

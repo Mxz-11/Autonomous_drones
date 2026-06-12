@@ -7,19 +7,19 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 
 WorldInfo {
   info [
-    "Industrial Search World — VLM Drone Navigation (M3-BLUE)"
+    "Industrial Search World — VLM Drone Navigation (M3-BLUE, simplificado)"
     "Nave industrial con un unico objeto objetivo:"
     "  AZUL -> caja azul en (X=9, Y=-5)"
     "El dron NO puede ver la caja al inicio."
-    "Debe bordear el muro lateral interior y esquivar barriles."
+    "Un UNICO obstaculo: muro lateral en (X=5, Y=-2), bloquea la vision directa."
     "Prompts: Busca la caja azul / Encuentra el objeto azul / Navega hacia la caja azul"
   ]
   title "Industrial Search — Blue Target"
   basicTimeStep 8
 }
 Viewpoint {
-  orientation 0.3468762415792132 0.290856136998848 -0.8916723504729676 1.7851952831037001
-  position 2.119973637346135 8.91750456893022 8.822780842342917
+  orientation 0.39155221103127663 0.35243522194319665 -0.8499860471621686 1.7714986116665061
+  position 0.9635390546961378 14.970669314792671 16.25098151605755
   follow "Crazyflie"
   followType "Pan and Tilt Shot"
 }
@@ -129,96 +129,6 @@ DEF MURO_LATERAL Solid {
     size 0.15 4 2.5
   }
 }
-DEF BARRIL_1 Solid {
-  translation 3 -1.8 0.5
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.52 0.34 0.18
-        roughness 0.75
-        metalness 0.3
-      }
-      geometry Cylinder {
-        height 1
-        radius 0.3
-      }
-    }
-  ]
-  name "barril_1"
-  boundingObject Cylinder {
-    height 1
-    radius 0.3
-  }
-  physics Physics {
-    density 500
-  }
-}
-DEF BARRIL_1_TAPA Solid {
-  translation 3 -1.8 1.02
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.42 0.26 0.12
-        roughness 0.6
-        metalness 0.4
-      }
-      geometry Cylinder {
-        height 0.04
-        radius 0.32
-      }
-    }
-  ]
-  name "barril_1_tapa"
-  boundingObject Cylinder {
-    height 0.04
-    radius 0.32
-  }
-}
-DEF BARRIL_2 Solid {
-  translation 6.5 -5.2 0.45
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.48 0.3 0.14
-        roughness 0.78
-        metalness 0.28
-      }
-      geometry Cylinder {
-        height 0.9
-        radius 0.27
-      }
-    }
-  ]
-  name "barril_2"
-  boundingObject Cylinder {
-    height 0.9
-    radius 0.27
-  }
-  physics Physics {
-    density 500
-  }
-}
-DEF BARRIL_2_TAPA Solid {
-  translation 6.5 -5.2 0.92
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.38 0.22 0.1
-        roughness 0.6
-        metalness 0.4
-      }
-      geometry Cylinder {
-        height 0.04
-        radius 0.29
-      }
-    }
-  ]
-  name "barril_2_tapa"
-  boundingObject Cylinder {
-    height 0.04
-    radius 0.29
-  }
-}
 DEF CAJA_AZUL Solid {
   translation 9 -5 0.45
   children [
@@ -241,142 +151,9 @@ DEF CAJA_AZUL Solid {
     density 300
   }
 }
-DEF BLOQUE_METALICO_A Solid {
-  translation 2 3.2 0.45
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.4 0.38 0.36
-        roughness 0.7
-        metalness 0.5
-      }
-      geometry Box {
-        size 0.8 0.8 0.9
-      }
-    }
-  ]
-  name "bloque_metalico_a"
-  boundingObject Box {
-    size 0.8 0.8 0.9
-  }
-}
-DEF BLOQUE_METALICO_B Solid {
-  translation 2 3.2 1.35
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.38 0.36 0.34
-        roughness 0.7
-        metalness 0.5
-      }
-      geometry Box {
-        size 0.8 0.8 0.9
-      }
-    }
-  ]
-  name "bloque_metalico_b"
-  boundingObject Box {
-    size 0.8 0.8 0.9
-  }
-}
-DEF BLOQUE_METALICO_C Solid {
-  translation 7.5 4 0.4
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.42 0.4 0.38
-        roughness 0.72
-        metalness 0.48
-      }
-      geometry Box {
-        size 0.9 0.9 0.8
-      }
-    }
-  ]
-  name "bloque_metalico_c"
-  boundingObject Box {
-    size 0.9 0.9 0.8
-  }
-}
-DEF PILAR_1 Solid {
-  translation 0.5 5.5 1.5
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.48 0.44 0.4
-        roughness 0.7
-        metalness 0.3
-      }
-      geometry Box {
-        size 0.25 0.25 3
-      }
-    }
-  ]
-  name "pilar_1"
-  boundingObject Box {
-    size 0.25 0.25 3
-  }
-}
-DEF PILAR_2 Solid {
-  translation 0.5 -5.5 1.5
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.48 0.44 0.4
-        roughness 0.7
-        metalness 0.3
-      }
-      geometry Box {
-        size 0.25 0.25 3
-      }
-    }
-  ]
-  name "pilar_2"
-  boundingObject Box {
-    size 0.25 0.25 3
-  }
-}
-DEF PILAR_3 Solid {
-  translation 10.5 5.5 1.5
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.48 0.44 0.4
-        roughness 0.7
-        metalness 0.3
-      }
-      geometry Box {
-        size 0.25 0.25 3
-      }
-    }
-  ]
-  name "pilar_3"
-  boundingObject Box {
-    size 0.25 0.25 3
-  }
-}
-DEF PILAR_4 Solid {
-  translation 10.5 -5.5 1.5
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColor 0.48 0.44 0.4
-        roughness 0.7
-        metalness 0.3
-      }
-      geometry Box {
-        size 0.25 0.25 3
-      }
-    }
-  ]
-  name "pilar_4"
-  boundingObject Box {
-    size 0.25 0.25 3
-  }
-}
 Crazyflie {
-  translation 0 0 0.03389
-  rotation 0 0 -1 0
+  translation 0 1.44 0.05389
+  rotation 0 0 1 0
   extensionSlot [
     Camera {
       translation 0.05 0 0.01

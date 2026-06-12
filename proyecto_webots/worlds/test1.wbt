@@ -9,22 +9,22 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 
 WorldInfo {
   info [
-    "VLM Drone Mission World."
+    "VLM Drone Mission World (compacto, ~12 m)."
     "Recorrido al aire libre con obstáculos físicos:"
     "  1. Despegar de la plataforma roja (X=0)."
-    "  2. Pasar por el arco ROJO (X=4)."
-    "  3. Rodear el bloque de contenedores por la derecha (X=7..9)."
-    "  4. Pasar por el arco AZUL (X=12) entre muros de cajas."
-    "  5. Zigzag entre conos (X=15..21)."
-    "  6. Pasar por el arco VERDE (X=23)."
-    "  7. Aterrizar en la plataforma verde con H (X=27)."
+    "  2. Pasar por el arco ROJO (X=2.5)."
+    "  3. Rodear el bloque de contenedores por la derecha (X=5)."
+    "  4. Pasar por el arco AZUL (X=7.5) entre muros de cajas."
+    "  5. Zigzag entre conos (X=8.3..10.3)."
+    "  6. Pasar por el arco VERDE (X=11)."
+    "  7. Aterrizar en la plataforma verde con H (X=12)."
   ]
   title "VLM Drone Mission"
   basicTimeStep 8
 }
 Viewpoint {
   orientation -0.06645195861727961 0.9856290506123521 0.15530457747574905 0.6
-  position -1.210337961070837 -0.10485143496059562 0.8148424591807205
+  position -1.9661733452724994 -0.172343867780943 1.7087842912048332
   follow "Crazyflie"
   followType "Pan and Tilt Shot"
 }
@@ -38,8 +38,7 @@ Floor {
   size 100 40
 }
 DEF LAUNCH_PAD Solid {
-  translation -2.937661730049097e-20 4.434139326594337e-20 0.004803630630944006
-  rotation -4.656709469530656e-11 -5.014917889993598e-11 -1 1.7845276576437883e-08
+  translation 0 0 0.0048
   children [
     Shape {
       appearance PBRAppearance {
@@ -60,8 +59,7 @@ DEF LAUNCH_PAD Solid {
   }
 }
 DEF WP1_LEFT Solid {
-  translation 4 0.7 0.4991660028499999
-  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  translation 2.5 0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -82,8 +80,7 @@ DEF WP1_LEFT Solid {
   }
 }
 DEF WP1_RIGHT Solid {
-  translation 4 -0.7 0.4991660028499999
-  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  translation 2.5 -0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -104,8 +101,7 @@ DEF WP1_RIGHT Solid {
   }
 }
 DEF WP1_TOP Solid {
-  translation 4 2.7290328480237144e-18 1.0338126957000005
-  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  translation 2.5 0 1.0338126957000005
   children [
     Shape {
       appearance PBRAppearance {
@@ -126,7 +122,7 @@ DEF WP1_TOP Solid {
   }
 }
 DEF CONTAINER_1 Solid {
-  translation 8 1.2 0.6
+  translation 5 1.2 0.6
   children [
     Shape {
       appearance PBRAppearance {
@@ -145,7 +141,7 @@ DEF CONTAINER_1 Solid {
   }
 }
 DEF CONTAINER_2 Solid {
-  translation 8 1.2 1.8
+  translation 5 1.2 1.8
   children [
     Shape {
       appearance PBRAppearance {
@@ -164,7 +160,7 @@ DEF CONTAINER_2 Solid {
   }
 }
 DEF CONTAINER_3 Solid {
-  translation 8 0 0.6
+  translation 5 0 0.6
   children [
     Shape {
       appearance PBRAppearance {
@@ -183,7 +179,7 @@ DEF CONTAINER_3 Solid {
   }
 }
 DEF WBOX_1 Solid {
-  translation 7 -1.6 0.3
+  translation 4.3 -1.6 0.3
   children [
     Shape {
       appearance PBRAppearance {
@@ -201,7 +197,7 @@ DEF WBOX_1 Solid {
   }
 }
 DEF WBOX_2 Solid {
-  translation 9 -1.6 0.3
+  translation 5.7 -1.6 0.3
   children [
     Shape {
       appearance PBRAppearance {
@@ -219,7 +215,7 @@ DEF WBOX_2 Solid {
   }
 }
 DEF WBOX_3 Solid {
-  translation 9 -1.6 0.9
+  translation 5.7 -1.6 0.9
   children [
     Shape {
       appearance PBRAppearance {
@@ -237,7 +233,7 @@ DEF WBOX_3 Solid {
   }
 }
 DEF CARD_WALL_L Solid {
-  translation 12 1.45 0.4
+  translation 7.5 1.45 0.4
   children [
     Shape {
       appearance PBRAppearance {
@@ -255,7 +251,7 @@ DEF CARD_WALL_L Solid {
   }
 }
 DEF CARD_WALL_R Solid {
-  translation 12 -1.45 0.4
+  translation 7.5 -1.45 0.4
   children [
     Shape {
       appearance PBRAppearance {
@@ -273,8 +269,7 @@ DEF CARD_WALL_R Solid {
   }
 }
 DEF WP2_LEFT Solid {
-  translation 12 0.7 0.4991660028499999
-  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  translation 7.5 0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -295,8 +290,7 @@ DEF WP2_LEFT Solid {
   }
 }
 DEF WP2_RIGHT Solid {
-  translation 12 -0.7 0.4991660028499999
-  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  translation 7.5 -0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -317,8 +311,7 @@ DEF WP2_RIGHT Solid {
   }
 }
 DEF WP2_TOP Solid {
-  translation 12 2.7290328480237144e-18 1.0338126957000005
-  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  translation 7.5 0 1.0338126957000005
   children [
     Shape {
       appearance PBRAppearance {
@@ -339,27 +332,19 @@ DEF WP2_TOP Solid {
   }
 }
 TrafficCone {
-  translation 15.5 1 0
+  translation 8.3 1 0
   name "cone_1"
 }
 TrafficCone {
-  translation 17 -1 0
+  translation 9.3 -1 0
   name "cone_2"
 }
 TrafficCone {
-  translation 18.5 1 0
+  translation 10.3 1 0
   name "cone_3"
 }
-TrafficCone {
-  translation 20 -1 0
-  name "cone_4"
-}
-TrafficCone {
-  translation 21.5 1 0
-  name "cone_5"
-}
 DEF POST_1 Solid {
-  translation 16 2.5 1.5
+  translation 8.8 2.5 1.5
   children [
     Shape {
       appearance PBRAppearance {
@@ -378,7 +363,7 @@ DEF POST_1 Solid {
   }
 }
 DEF POST_2 Solid {
-  translation 19 -2.5 1.5
+  translation 9.8 -2.5 1.5
   children [
     Shape {
       appearance PBRAppearance {
@@ -397,32 +382,31 @@ DEF POST_2 Solid {
   }
 }
 Pine {
-  translation 15 3.5 0
+  translation 8.5 3.5 0
   name "pine_1"
 }
 Pine {
-  translation 18 4 0
+  translation 10 4 0
   name "pine_2"
 }
 Pine {
-  translation 21 3.5 0
+  translation 11.5 3.5 0
   name "pine_3"
 }
 Pine {
-  translation 15 -3.5 0
+  translation 8.5 -3.5 0
   name "pine_4"
 }
 Pine {
-  translation 18 -4 0
+  translation 10 -4 0
   name "pine_5"
 }
 Pine {
-  translation 21 -3.5 0
+  translation 11.5 -3.5 0
   name "pine_6"
 }
 DEF WP3_LEFT Solid {
-  translation 23 0.7 0.4991660028499999
-  rotation -0.6084666495794921 0.793202808581334 0.024446693195423756 6.70203444837482e-18
+  translation 11 0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -443,8 +427,7 @@ DEF WP3_LEFT Solid {
   }
 }
 DEF WP3_RIGHT Solid {
-  translation 23 -0.7 0.4991660028499999
-  rotation -0.21476533154793348 0.9760763241115339 -0.03392435517474229 1.2134582725132677e-17
+  translation 11 -0.7 0.4991660028499999
   children [
     Shape {
       appearance PBRAppearance {
@@ -465,8 +448,7 @@ DEF WP3_RIGHT Solid {
   }
 }
 DEF WP3_TOP Solid {
-  translation 23 2.7290328480237144e-18 1.0338126957000005
-  rotation -0.008449639800440513 0.9993349384294585 0.035472304991825486 1.6559280210346485e-16
+  translation 11 0 1.0338126957000005
   children [
     Shape {
       appearance PBRAppearance {
@@ -487,8 +469,7 @@ DEF WP3_TOP Solid {
   }
 }
 DEF LANDING_PAD Solid {
-  translation 27 -8.405490846652953e-21 0.004717472000000073
-  rotation 0.8944109190082924 0.4472054595041379 0.006031993736273972 3.6768739319348006e-19
+  translation 12 0 0.0047
   children [
     Shape {
       appearance PBRAppearance {
@@ -548,8 +529,8 @@ DEF LANDING_PAD Solid {
   }
 }
 Crazyflie {
-  translation -2.862041025964661e-16 -8.692382319653776e-16 0.03389
-  rotation 3.7799324202933813e-16 7.779098055844074e-16 -1 0.28969440398232765
+  translation 0 0 0.03389
+  rotation 0 0 1 0.261799
   extensionSlot [
     Camera {
       translation 0.05 0 0.01
@@ -561,17 +542,18 @@ Crazyflie {
     }
     DistanceSensor {
       translation 0.05 0 0
-      rotation 0 0 1 0
       name "dist_front"
-      lookupTable [ 0 0 0  4.0 4.0 0 ]
+      lookupTable [
+        0 0 0
+        4 4 0
+      ]
       type "infra-red"
-      numberOfRays 1
     }
     Camera {
       translation 0 0 -0.02
       rotation 0 1 0 1.5708
       name "down_camera"
-      fieldOfView 1.0
+      fieldOfView 1
       width 160
       height 160
     }

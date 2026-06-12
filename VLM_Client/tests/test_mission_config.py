@@ -49,15 +49,21 @@ class TestTargetCoordinates:
         assert cfg.TARGET_X is None
         assert cfg.TARGET_Y is None
 
-    def test_valid_float_parsed(self):
+    def test_env_vars_are_ignored(self):
         cfg = _reload_config({"DRONE_TARGET_X": "5.0", "DRONE_TARGET_Y": "-3.5"})
-        assert cfg.TARGET_X == pytest.approx(5.0)
-        assert cfg.TARGET_Y == pytest.approx(-3.5)
-
-    def test_invalid_float_falls_back_to_none(self):
-        cfg = _reload_config({"DRONE_TARGET_X": "bad", "DRONE_TARGET_Y": "bad"})
         assert cfg.TARGET_X is None
         assert cfg.TARGET_Y is None
+        assert cfg.STALE_TARGET_ENV == {"DRONE_TARGET_X": "5.0", "DRONE_TARGET_Y": "-3.5"}
+
+    def test_cli_flag_parsed(self):
+        import mission_config
+        assert mission_config._parse_target_arg(["--target", "5,-3.5"]) == (5.0, -3.5)
+        assert mission_config._parse_target_arg(["--target=9,-5"]) == (9.0, -5.0)
+
+    def test_invalid_cli_falls_back_to_none(self):
+        import mission_config
+        assert mission_config._parse_target_arg(["--target", "bad"]) == (None, None)
+        assert mission_config._parse_target_arg([]) == (None, None)
 
 
 class TestSyncLlmMode:

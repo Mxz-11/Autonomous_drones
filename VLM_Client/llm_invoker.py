@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from mission_config import DECISION_MAX_LATENCY_S, TARGET_Y as _TARGET_Y
+from mission_config import DECISION_MAX_LATENCY_S, effective_target_y
 from vision_pipeline import jpeg_b64_to_data_url, is_context_window_error
 from advanced_logger import MissionLogger, get_logger, extract_token_usage
 from llm_config import LMSTUDIO_OPENAI_BASE, is_probably_network_llm_error
@@ -23,8 +23,9 @@ _llm_net_err_last_ts: float = 0.0
 def build_vlm_user_text(frame_id: int, pos: dict, mission_state=None) -> str:
     x, y, z = pos["x"], pos["y"], pos["z"]
 
-    if _TARGET_Y is not None:
-        dy = y - _TARGET_Y
+    tgt_y = effective_target_y(x)
+    if tgt_y is not None:
+        dy = y - tgt_y
         if dy > 0.1:
             drift = f"LEFT {dy:.2f}m"
 
