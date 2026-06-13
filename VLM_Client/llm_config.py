@@ -120,12 +120,7 @@ class LMStudioCompatChatOpenAI(ChatOpenAI):
             return self
 
 
-def _base_chat_openai(
-    model: str,
-    temperature: float,
-    max_tokens: int,
-    timeout: float,
-) -> LMStudioCompatChatOpenAI:
+def _base_chat_openai(model: str, temperature: float, max_tokens: int, timeout: float) -> LMStudioCompatChatOpenAI:
     kwargs: dict[str, Any] = {"model": model, "temperature": temperature, "max_tokens": max_tokens, "timeout": timeout, "base_url": LMSTUDIO_OPENAI_BASE, "api_key": OPENAI_API_KEY, "max_retries": 0, "extra_body": {"enable_thinking": False}}
     try:
         return LMStudioCompatChatOpenAI(**kwargs)
@@ -274,13 +269,7 @@ class LMStudioChat(BaseChatModel):
 
 
 def get_decision_llm_native() -> LMStudioChat:
-    return LMStudioChat(
-        model_name=DECISION_MODEL_ID,
-        temperature=DECISION_TEMPERATURE,
-        max_tokens=DECISION_MAX_TOKENS,
-        timeout=DECISION_TIMEOUT_S,
-        base_url=LMSTUDIO_NATIVE_BASE_URL,
-    )
+    return LMStudioChat(model_name=DECISION_MODEL_ID, temperature=DECISION_TEMPERATURE, max_tokens=DECISION_MAX_TOKENS, timeout=DECISION_TIMEOUT_S, base_url=LMSTUDIO_NATIVE_BASE_URL)
 
 
 if __name__ == "__main__":
@@ -290,12 +279,8 @@ if __name__ == "__main__":
     logger.info("Test ChatOpenAI -> %s", LMSTUDIO_OPENAI_BASE)
     try:
         llm = get_decision_llm()
-        r = llm.invoke(
-            [
-                SystemMessage(content="Reply with exactly: OK"),
-                HumanMessage(content="ping"),
-            ]
-        )
+        r = llm.invoke([SystemMessage(content="Reply with exactly: OK"), HumanMessage(content="ping"),])
         logger.info("R: %s", r.content)
+        
     except Exception as e:
         logger.error("%s", e)

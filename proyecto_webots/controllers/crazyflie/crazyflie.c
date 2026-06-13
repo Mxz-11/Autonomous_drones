@@ -50,8 +50,7 @@ static int client_fd = -1;
 float cmd_vx = 0, cmd_vy = 0, cmd_vz = 0, cmd_yaw = 0;
 static float gps_x = 0, gps_y = 0, gps_z = 0;
 
-/* ================= TCP ================= */
-
+// TCP
 static void init_tcp() {
   #ifdef _WIN32
     WSADATA wsa;
@@ -59,7 +58,7 @@ static void init_tcp() {
   #endif
   server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-  /* Permitir reconexión sin esperar TIME_WAIT */
+  // Permitir reconexión sin esperar TIME_WAIT
   int opt = 1;
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -142,7 +141,7 @@ static inline double clamp(double v, double min, double max) {
 
 #define MAX_MOTOR_VEL 600.0
 
-/* ================= MAIN ================= */
+// MAIN 
 
 int main() {
   wb_robot_init();
@@ -159,7 +158,7 @@ int main() {
   wb_motor_set_position(m3, INFINITY);
   wb_motor_set_position(m4, INFINITY);
 
-  /* SENSORES */
+  // SENSORES 
   WbDeviceTag imu = wb_robot_get_device("inertial_unit");
   WbDeviceTag gps = wb_robot_get_device("gps");
   WbDeviceTag gyro = wb_robot_get_device("gyro");
@@ -168,7 +167,7 @@ int main() {
   wb_gps_enable(gps, timestep);
   wb_gyro_enable(gyro, timestep);
 
-  /* CAMARA FRONTAL */
+  // CAMARA FRONTAL
   WbDeviceTag camera = wb_robot_get_device("vlm_camera");
   wb_camera_enable(camera, timestep);
 
@@ -176,11 +175,11 @@ int main() {
   int cam_h = wb_camera_get_height(camera);
   printf("[CAM] %dx%d\n", cam_w, cam_h);
 
-  /* SENSOR DE DISTANCIA */
+  // SENSOR DE DISTANCIA
   WbDeviceTag dist_front = wb_robot_get_device("dist_front");
   wb_distance_sensor_enable(dist_front, timestep);
 
-  /* CAMARA ABAJO */
+  // CAMARA ABAJO 
   WbDeviceTag down_camera = wb_robot_get_device("down_camera");
   wb_camera_enable(down_camera, timestep);
 
@@ -188,7 +187,7 @@ int main() {
   int down_h = wb_camera_get_height(down_camera);
   printf("[DOWN_CAM] %dx%d\n", down_w, down_h);
 
-  /* PID */
+  // PID
   actual_state_t actual_state = {0};
   desired_state_t desired_state = {0};
 
@@ -259,13 +258,13 @@ int main() {
    wb_motor_set_velocity(m4, clamp( motor_power.m4, -MAX_MOTOR_VEL, MAX_MOTOR_VEL));
 
 
-    /* Enviar info sensores */
+    // Enviar info sensores 
     if (client_fd >= 0 && frame_requested) {
       frame_requested = 0;
       const unsigned char *img = wb_camera_get_image(camera);
       int header[2] = { cam_w, cam_h };
 
-      /* Header de la camara frontal */
+      // Header de la camara frontal
       ssize_t n1 = send(client_fd, header, sizeof(header), 0);
       if (n1 <= 0) {
         close(client_fd); client_fd = -1;
@@ -273,7 +272,7 @@ int main() {
         continue;
       }
 
-      /* Número de pixeles de la camara frontal */
+      // Número de pixeles de la camara frontal
       size_t total = cam_w * cam_h * 4;
       size_t sent = 0;
       while (sent < total && client_fd >= 0) {
@@ -283,7 +282,7 @@ int main() {
       }
       if (client_fd < 0) { printf("[TCP] Client disconnected (front pixels)\n"); continue; }
 
-      /* GPS X/Y/Z */
+      // GPS X/Y/Z
       float pos[3] = { gps_x, gps_y, gps_z };
       if (send(client_fd, pos, sizeof(pos), 0) <= 0) {
         close(client_fd); client_fd = -1;
@@ -291,7 +290,7 @@ int main() {
         continue;
       }
 
-      /* Sensor de distancia */
+      // Sensor de distancia
       float dist_m = (float)wb_distance_sensor_get_value(dist_front);
       if (send(client_fd, &dist_m, sizeof(dist_m), 0) <= 0) {
         close(client_fd); client_fd = -1;
@@ -299,7 +298,7 @@ int main() {
         continue;
       }
 
-      /* Header de la camara hacia abajo */
+      // Header de la camara hacia abajo
       int down_header[2] = { down_w, down_h };
       if (send(client_fd, down_header, sizeof(down_header), 0) <= 0) {
         close(client_fd); client_fd = -1;
@@ -307,7 +306,7 @@ int main() {
         continue;
       }
 
-      /* Número de pixeles de la camara hacia abajo */
+      // Número de pixeles de la camara hacia abajo
       const unsigned char *down_img = wb_camera_get_image(down_camera);
       size_t down_total = down_w * down_h * 4;
       size_t down_sent = 0;
